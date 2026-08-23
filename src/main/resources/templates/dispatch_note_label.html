@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Dispatch Note | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f4f7f6; font-family: 'Inter', sans-serif; padding: 2rem; }
+        .controls-card { max-width: 500px; margin: 0 auto 2rem auto; background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .package-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .package-row input { max-width: 120px; }
+
+        .label-sheet { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .dispatch-label {
+            width: 320px;
+            border: 2px solid #000;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            background: white;
+        }
+        .dispatch-label h5 { font-weight: 800; margin-bottom: 2px; letter-spacing: 0.5px; }
+        .dispatch-label h6 { font-weight: 700; margin-bottom: 10px; }
+        .weight-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 2px; }
+        .weight-row .label { font-weight: 600; text-align: left; }
+        .invoice-line { margin-top: 10px; font-weight: 700; }
+        .lot-line { margin-top: 6px; font-weight: 700; font-size: 1.05rem; }
+        .site-line { font-size: 0.75rem; margin-top: 8px; color: #333; }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .controls-card, .no-print { display: none !important; }
+            .label-sheet { gap: 10px; }
+            .dispatch-label { break-inside: avoid; page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="controls-card no-print">
+    <h5 class="fw-bold mb-3">Package Split — <span th:text="${blend.grade}"></span> (<span th:text="${blend.quantity}"></span> kg total)</h5>
+    <div id="packageList"></div>
+    <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="addPackage()"><i class="fas fa-plus"></i> Add Package</button>
+    <hr>
+    <div class="d-flex justify-content-between align-items-center">
+        <span id="packageSumLabel" class="small text-muted"></span>
+        <button type="button" class="btn btn-success rounded-pill px-4" onclick="window.print()">Print Labels</button>
+    </div>
+</div>
+
+<div class="label-sheet" id="labelSheet"></div>
+
+<script th:inline="javascript">
+    const totalQty = /*[[${blend.quantity}]]*/ 0;
+    const grade = /*[[${blend.grade}]]*/ '';
+    const invoiceNumber = /*[[${blend.invoiceNumber}]]*/ '';
+    const lotNumber = /*[[${blend.batchNumber}]]*/ '';
+    const tareWeight = /*[[${tareWeight}]]*/ 1.7;
+    const qrCode = /*[[${qrCode}]]*/ '';
+    let packages = /*[[${defaultPackages}]]*/ [];
+
+    function renderPackageInputs() {
+        const list = document.getElementById('packageList');
+        list.innerHTML = '';
+        packages.forEach((qty, idx) => {
+            const row = document.createElement('div');
+            row.className = 'package-row';
+            row.innerHTML = `
+                <span class="small text-muted" style="width:70px;">Pkg ${idx + 1}</span>
+                <input type="number" step="0.01" class="form-control form-control-sm" value="${qty}"
+                       onchange="updatePackage(${idx}, this.value)">
+                <span class="small">kg</span>
+                <button type="button" class="btn btn-sm btn-outline-danger ms-auto" onclick="removePackage(${idx})">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            list.appendChild(row);
+        });
+        updateSumLabel();
+    }
+
+    function updatePackage(idx, value) {
+        packages[idx] = parseFloat(value) || 0;
+        renderLabels();
+        updateSumLabel();
+    }
+
+    function removePackage(idx) {
+        packages.splice(idx, 1);
+        renderPackageInputs();
+        renderLabels();
+    }
+
+    function addPackage() {
+        packages.push(0);
+        renderPackageInputs();
+        renderLabels();
+    }
+
+    function updateSumLabel() {
+        const sum = packages.reduce((a, b) => a + b, 0);
+        const label = document.getElementById('packageSumLabel');
+        const diff = Math.round((sum - totalQty) * 100) / 100;
+        label.textContent = `Packages total: ${sum.toFixed(2)}kg of ${totalQty.toFixed(2)}kg`
+            + (diff !== 0 ? `  (${diff > 0 ? '+' : ''}${diff.toFixed(2)}kg vs blend quantity)` : '');
+        label.className = diff !== 0 ? 'small text-danger fw-bold' : 'small text-muted';
+    }
+
+    function renderLabels() {
+        const sheet = document.getElementById('labelSheet');
+        sheet.innerHTML = '';
+        packages.forEach(netWeight => {
+            const grossWeight = Math.round((netWeight + tareWeight) * 1000) / 1000;
+            const div = document.createElement('div');
+            div.className = 'dispatch-label';
+            div.innerHTML = `
+                <h5>LUMBINI TEA VALLEY</h5>
+                <h6>ORGANICS ${grade}</h6>
+                <div class="weight-row"><span class="label">NET WEIGHT</span><span>: ${netWeight.toFixed(3)}Kg</span></div>
+                <div class="weight-row"><span class="label">TARE WEIGHT</span><span>: ${tareWeight.toFixed(3)}Kg</span></div>
+                <div class="weight-row"><span class="label">GROSS WEIGHT</span><span>: ${grossWeight.toFixed(3)}Kg</span></div>
+                               <div class="invoice-line">INVOICE NO : ${invoiceNumber}</div>
+                <div class="lot-line">LOT :- ${lotNumber}</div>
+                <div class="site-line">www.lumbiniteavalley.com</div>
+            `;
+            sheet.appendChild(div);
+        });
+    }
+
+    renderPackageInputs();
+    renderLabels();
+</script>
+
+</body>
+</html>

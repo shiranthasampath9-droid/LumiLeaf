@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rolling & Drying | LumiLeaf</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --forest: #1b4332;
+            --leaf:   #2d6a4f;
+            --sage:   #52b788;
+            --mist:   #d8f3dc;
+            --amber:  #e76f2e;
+            --amber-light: #fef3ec;
+            --ink:    #1a1a2e;
+            --slate:  #4a5568;
+            --snow:   #f8fdf9;
+            --white:  #ffffff;
+            --border: rgba(45,106,79,.15);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--snow);
+            color: var(--ink);
+            padding-top: 64px;
+            padding-bottom: 20px;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 64px;
+            background: var(--forest);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+
+        .header-brand { display: flex; align-items: center; gap: 10px; }
+
+        .header-brand .logo-ring {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.25);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .header-brand .logo-ring i { color: var(--sage); font-size: 16px; }
+        .header-brand .brand-text  { display: flex; flex-direction: column; }
+
+        .brand-name {
+            font-family: 'Playfair Display', serif;
+            font-size: 15px; color: #fff;
+            letter-spacing: .5px; line-height: 1;
+        }
+
+        .brand-sub {
+            font-size: 10px;
+            color: var(--sage);
+            letter-spacing: 2px; text-transform: uppercase; margin-top: 2px;
+        }
+
+        .logout-btn {
+            width: 36px;
+            height: 36px;
+            background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: rgba(255,255,255,.7);
+            transition: background .2s;
+        }
+        .logout-btn:hover { background: rgba(255,255,255,.16); }
+        .logout-btn i { font-size: 14px; }
+
+        /* ── TABS ── */
+        .tab { display: none; animation: fadeIn .25s ease; }
+        .tab.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── STATUS BANNER ── */
+        .status-banner {
+            margin: 18px 16px 0;
+            padding: 18px 20px;
+            background: var(--forest);
+            border-radius: 18px;
+            position: relative; overflow: hidden;
+        }
+
+        .status-banner::before {
+            content: '';
+            position: absolute;
+            width: 140px; height: 140px; border-radius: 50%;
+            background: rgba(82,183,136,.12); top: -40px; right: -30px;
+        }
+
+        .status-banner::after {
+            content: '';
+            position: absolute;
+            width: 80px; height: 80px; border-radius: 50%;
+            background: rgba(82,183,136,.08); bottom: -20px; left: 40px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center; gap: 5px;
+            font-size: 10px; font-weight: 600;
+            letter-spacing: 1.5px; text-transform: uppercase;
+            color: var(--sage);
+            background: rgba(82,183,136,.15);
+            border: 1px solid rgba(82,183,136,.25);
+            padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;
+        }
+
+        .pulse-dot {
+            width: 6px;
+            height: 6px; border-radius: 50%;
+            background: var(--sage); animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: .5; transform: scale(.7); }
+        }
+
+        .status-banner h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 22px; color: #fff; font-weight: 600;
+            position: relative; z-index: 1;
+        }
+
+        .status-banner .date-display {
+            font-size: 12px;
+            color: rgba(255,255,255,.6);
+            margin-top: 4px; position: relative; z-index: 1;
+        }
+
+        .status-banner.drying {
+            background: linear-gradient(135deg, #6b2b08 0%, #9c3e10 100%);
+        }
+        .status-banner.drying .status-badge {
+            color: #f4a261;
+            background: rgba(244,162,97,.15);
+            border-color: rgba(244,162,97,.25);
+        }
+        .status-banner.drying .pulse-dot { background: #f4a261; }
+
+        /* ── BANNER ALERTS ── */
+        .error-banner {
+            margin: 14px 16px 0;
+            padding: 12px 16px;
+            background: #fef2f2; border: 1px solid #fecaca;
+            border-radius: 12px; color: #991b1b;
+            font-size: 13px; font-weight: 600;
+            display: flex;
+            align-items: center; gap: 8px;
+        }
+
+        .success-banner {
+            margin: 14px 16px 0;
+            padding: 12px 16px;
+            background: #f0fdf4; border: 1px solid #bbf7d0;
+            border-radius: 12px; color: #166534;
+            font-size: 13px; font-weight: 600;
+            display: flex;
+            align-items: center; gap: 8px;
+        }
+
+        /* ── DATE PICKER STRIP ── */
+        .date-strip {
+            margin: 14px 16px 0;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 16px;
+            display: flex; align-items: center; gap: 12px;
+        }
+
+        .date-strip label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--sage); letter-spacing: 1px;
+            text-transform: uppercase; white-space: nowrap;
+        }
+
+        .date-strip input[type="date"] {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px; color: var(--ink);
+            background: var(--snow);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .date-strip input[type="date"]:focus {
+            border-color: var(--sage);
+            box-shadow: 0 0 0 3px rgba(82,183,136,.12);
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: var(--white);
+            margin: 14px 16px;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .card-inner { padding: 20px; }
+
+        .card-header {
+            padding: 16px 20px;
+            background: var(--mist);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .card-header-icon {
+            width: 32px;
+            height: 32px; border-radius: 10px;
+            background: var(--leaf);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .card-header-icon i { color: #fff; font-size: 13px; }
+
+        .card-header-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--forest); letter-spacing: .3px;
+        }
+
+        /* ── FORM ELEMENTS ── */
+        .field { margin-bottom: 14px; }
+
+        .field label, .input-grid-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--sage); letter-spacing: 1.2px;
+            text-transform: uppercase; display: block; margin-bottom: 6px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 13px 15px;
+            border: 1.5px solid #e2e8f0; border-radius: 12px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 15px; color: var(--ink); background: #fff;
+            outline: none; transition: border-color .2s, box-shadow .2s;
+            appearance: none;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            border-color: var(--sage);
+            box-shadow: 0 0 0 3px rgba(82,183,136,.12);
+        }
+
+        .field input.field-error,
+        .field select.field-error {
+            border-color: #f87171 !important;
+            box-shadow: 0 0 0 3px rgba(248,113,113,.12) !important;
+        }
+
+        .readonly {
+            background: var(--mist) !important;
+            border-color: transparent !important;
+            color: var(--forest) !important; font-weight: 600; cursor: default;
+        }
+
+        .field select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%232d6a4f' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 38px;
+        }
+
+        /* ── GRID INPUTS ── */
+        .input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px; margin-bottom: 14px;
+        }
+
+        .input-grid input {
+            width: 100%;
+            padding: 13px 12px;
+            border: 1.5px solid #e2e8f0; border-radius: 12px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px; color: var(--ink);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+        }
+
+        .input-grid input:focus {
+            border-color: var(--sage);
+            box-shadow: 0 0 0 3px rgba(82,183,136,.12);
+        }
+
+        .input-grid input.field-error {
+            border-color: #f87171 !important;
+            box-shadow: 0 0 0 3px rgba(248,113,113,.12) !important;
+        }
+
+        .input-grid input::placeholder { color: #b0bec5;
+        font-size: 13px; }
+
+        /* ── LOSS ROW ── */
+        .loss-row {
+            display: flex;
+            align-items: center; gap: 10px;
+            background: var(--mist); border-radius: 12px;
+            padding: 12px 15px; margin-bottom: 18px;
+        }
+
+        .loss-row .loss-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--leaf); letter-spacing: .8px;
+            text-transform: uppercase; flex: 1;
+        }
+
+        .loss-row .loss-value {
+            font-family: 'Playfair Display', serif;
+            font-size: 20px; color: var(--forest);
+        }
+
+        /* ── BUTTONS ── */
+        .btn {
+            width: 100%;
+            padding: 16px; border: none; border-radius: 14px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px; font-weight: 600;
+            letter-spacing: .8px; text-transform: uppercase;
+            cursor: pointer;
+            display: flex; align-items: center;
+            justify-content: center; gap: 8px;
+            transition: transform .15s, box-shadow .15s;
+        }
+
+        .btn:active { transform: scale(.97); }
+
+        .btn-green {
+            background: var(--leaf);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(45,106,79,.3);
+        }
+        .btn-green:hover { background: var(--forest); }
+
+        .btn-amber {
+            background: var(--amber);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(231,111,46,.3);
+        }
+        .btn-amber:hover { background: #c4572a; }
+
+        /* ── DRYING RECORD CARD ── */
+        .dry-card {
+            background: var(--white);
+            margin: 14px 16px;
+            border-radius: 18px; border: 1px solid var(--border); overflow: hidden;
+        }
+
+        .dry-card-header {
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #fff8f4 0%, #fff3eb 100%);
+            border-bottom: 1px solid rgba(231,111,46,.12);
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .lot-badge {
+            background: var(--amber);
+            color: #fff;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: .5px; padding: 4px 12px; border-radius: 20px;
+        }
+
+        /* ── ROLLED BREAKDOWN ── */
+        .dhool-breakdown {
+            background: #fff8f2;
+            border: 1px solid rgba(231,111,46,.12);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+        }
+
+        .dhool-breakdown-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--amber); letter-spacing: 1px;
+            text-transform: uppercase; margin-bottom: 10px;
+        }
+
+        .dhool-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .dhool-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff; border-radius: 8px;
+            padding: 7px 10px;
+            border: 1px solid rgba(231,111,46,.1);
+        }
+
+        .dhool-item-label {
+            font-size: 11px;
+            color: #9c3e10; font-weight: 600;
+        }
+
+        .dhool-item-value {
+            font-size: 13px;
+            font-weight: 700; color: var(--ink);
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            margin: 30px 16px;
+            text-align: center;
+            padding: 40px 20px; background: var(--white);
+            border-radius: 18px; border: 1px dashed var(--border);
+        }
+
+        .empty-icon {
+            width: 60px;
+            height: 60px; border-radius: 50%;
+            background: var(--mist);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 14px;
+        }
+        .empty-icon i { font-size: 24px; color: var(--sage); }
+        .empty-state p { font-size: 14px; color: var(--slate); }
+
+        /* ── DRYING INPUT ADJUSTMENTS ── */
+        .dry-card .field input,
+        .dry-card .input-grid input { border-color: #e2e8f0; }
+
+        .dry-card .field input:focus,
+        .dry-card .input-grid input:focus {
+            border-color: var(--amber);
+            box-shadow: 0 0 0 3px rgba(231,111,46,.1);
+        }
+
+        .dry-card .loss-row { background: #fff3eb; }
+        .dry-card .loss-row .loss-label { color: var(--amber); }
+        .dry-card .loss-row .loss-value { color: #6b2b08; }
+
+        /* ✅ FIX #4: Weather section styling */
+        .weather-section {
+            background: #f0fdf4;
+            border: 1px solid rgba(82,183,136,.15);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .weather-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--leaf);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .weather-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .weather-grid .field {
+            margin-bottom: 0;
+        }
+
+        .weather-grid label {
+            margin-bottom: 6px;
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    <div class="header-brand">
+        <div class="logo-ring"><i class="fas fa-leaf"></i></div>
+        <div class="brand-text">
+            <span class="brand-name">LumiLeaf</span>
+            <span class="brand-sub">Processing</span>
+        </div>
+    </div>
+    <div class="logout-btn" onclick="logout()">
+        <i class="fas fa-power-off"></i>
+    </div>
+    <form id="logoutForm" th:action="@{/logout}" method="post"></form>
+</div>
+
+
+<div id="rollingTab" class="tab active">
+
+    <div class="status-banner">
+        <div class="status-badge">
+            <div class="pulse-dot"></div>
+            Active Section
+        </div>
+        <h2 id="batchHeader">Select Batch ID</h2>
+        <div class="date-display" id="activeDateLabel"></div>
+    </div>
+
+    <div th:if="${param.error != null}" class="error-banner">
+        <i class="fas fa-exclamation-circle"></i>
+        Output weight cannot exceed weight in. Please check your entries.
+    </div>
+
+    <div th:if="${param.success != null}" class="success-banner">
+        <i class="fas fa-check-circle"></i>
+        Rolling record saved successfully.
+    </div>
+
+    <div class="date-strip">
+        <label><i class="fas fa-calendar-alt" style="margin-right:5px;"></i>Rolling Date</label>
+        <input type="date" id="rollingDatePicker"
+               th:value="${selectedDate}"
+               onchange="applyDateFilter()">
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-header-icon"><i class="fas fa-sync-alt"></i></div>
+            <span class="card-header-title">Rolling Entry</span>
+        </div>
+        <div class="card-inner">
+            <form th:action="@{/rolling/save}" method="post" id="rollingForm" onsubmit="return validateRolling(event)">
+
+                <input type="hidden" name="selectedDate" id="hiddenSelectedDate" th:value="${selectedDate}">
+
+                <div class="field">
+                    <label>Officer</label>
+                    <select name="rollingOfficer" id="officerSelect" required onchange="toggleCustomOfficer()">
+                        <option value="">Select Officer</option>
+                        <option th:each="off : ${officersList}"
+                                th:value="${off}"
+                                th:text="${off}"></option>
+                        <option th:if="${officersList == null}" value="Vipula">Vipula</option>
+
+                        <option value="Other" style="font-weight: 600; color: var(--amber);">+ Other (Type Manually)</option>
+                    </select>
+                </div>
+
+                <div class="field" id="customOfficerField" style="display: none;">
+                    <label style="color: var(--amber);">Type Officer Name</label>
+                    <input type="text" id="customOfficerName" name="customOfficerName" placeholder="Enter custom name">
+                </div>
+
+                <div class="field">
+                    <label>Batch ID</label>
+                    <select id="batchSelect" name="batchId" onchange="setBatch()" required>
+                        <option value="">Select Batch</option>
+                        <option th:each="b:${availableBatches}"
+                                th:value="${b.get('batchId')}"
+                                th:data-weight="${b.get('witheredWeight')}"
+                                th:data-officer="${b.get('officerName')}"
+                                th:data-prodbatch="${b.get('productionBatchNo')}"
+                                th:data-prodlot="${b.get('productionLotNo')}"
+                                th:text="${b.get('batchId')}">
+                        </option>
+                    </select>
+                </div>
+
+                <div class="input-grid">
+                    <div style="margin-bottom: 0;">
+                        <label class="input-grid-label">Prod Batch #</label>
+                        <input id="dispProdBatch" class="readonly" readonly placeholder="Auto-filled">
+                    </div>
+                    <div style="margin-bottom: 0;">
+                        <label class="input-grid-label">Prod Lot #</label>
+                        <input id="dispProdLot" class="readonly" readonly placeholder="Auto-filled">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Weight In (kg)</label>
+                    <input id="weightIn" name="beforeWeight" class="readonly" readonly
+                           placeholder="Select a batch above">
+                </div>
+
+                <label style="font-size:11px;font-weight:600;color:var(--sage);letter-spacing:1.2px;text-transform:uppercase;display:block;margin-bottom:8px;">
+                    Dhool &amp; Bulk Output
+                </label>
+                <div class="input-grid">
+                    <input id="r_d1" name="dhool1"  placeholder="Dhool 1"  type="number" step="0.01" min="0" oninput="calcRolling()" readonly style="background-color: #f5f5f5; pointer-events: none;">
+                    <input id="r_d2" name="dhool2"  placeholder="Dhool 2"  type="number" step="0.01" min="0" oninput="calcRolling()" readonly style="background-color: #f5f5f5; pointer-events: none;">
+                    <input id="r_d3" name="dhool3"  placeholder="Dhool 3"  type="number" step="0.01" min="0" oninput="calcRolling()" readonly style="background-color: #f5f5f5; pointer-events: none;">
+                    <input id="r_bb" name="bigBulk" placeholder="Big Bulk" type="number" step="0.01" min="0" oninput="calcRolling()" readonly style="background-color: #f5f5f5; pointer-events: none;">
+                </div>
+
+                <div class="loss-row">
+                    <span class="loss-label"><i class="fas fa-chart-line" style="margin-right:5px;"></i>Process Loss</span>
+                    <span class="loss-value" id="loss">—</span>
+                </div>
+
+                <!-- ✅ FIX #4: New Weather Section -->
+                <div class="weather-section">
+                    <span class="weather-section-title"><i class="fas fa-cloud-rain me-2"></i>Weather Conditions</span>
+                    <div class="weather-grid">
+                        <div class="field">
+                            <label>Rainfall (mm)</label>
+                            <input type="number" step="0.1" name="rainfall" class="rainfall-input"
+                                   placeholder="e.g., 5.5" min="0">
+                        </div>
+                        <div class="field">
+                            <label>Weather Condition</label>
+                            <select name="weatherCondition" class="weather-select">
+                                <option value="">Select Weather</option>
+                                <option value="Clear">Clear/Sunny</option>
+                                <option value="Cloudy">Cloudy</option>
+                                <option value="Rainy">Rainy</option>
+                                <option value="Partly Cloudy">Partly Cloudy</option>
+                                <option value="Foggy">Foggy</option>
+                                <option value="Windy">Windy</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-green" type="submit">
+                    <i class="fas fa-check-circle"></i>
+                    Submit Rolling
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="dryingTab" class="tab">
+    <div class="status-banner drying">
+        <div class="status-badge">
+            <div class="pulse-dot"></div>
+            Live QA
+        </div>
+        <h2>Drying Records</h2>
+        <div class="date-display">
+            Showing records for: <span th:text="${selectedDate}"></span>
+        </div>
+    </div>
+
+    <div th:if="${param.success_drying != null}" class="success-banner" style="margin:14px 16px 0;">
+        <i class="fas fa-check-circle"></i>
+        Drying record updated successfully.
+    </div>
+
+    <div th:if="${#lists.isEmpty(dryingRecords)}" class="empty-state">
+        <div class="empty-icon"><i class="fas fa-wind"></i></div>
+        <p>No drying records for this date. Select a different date or complete rolling first.</p>
+    </div>
+
+    <div th:each="d:${dryingRecords}" class="dry-card">
+        <div class="dry-card-header">
+            <span class="lot-badge" th:text="${d.lotNumber}"></span>
+        </div>
+        <div class="card-inner">
+            <form th:action="@{/mobile/update-drying}" method="post" onsubmit="return validateDrying(event,this)">
+                <input type="hidden" name="id" th:value="${d.id}">
+                <input type="hidden" name="redirectDate" th:value="${selectedDate}">
+                <input type="hidden" class="rolling-total-raw"
+                       th:value="${(d.dhool1 != null ? d.dhool1 : 0) + (d.dhool2 != null ? d.dhool2 : 0) + (d.dhool3 != null ? d.dhool3 : 0) + (d.bigBulk != null ? d.bigBulk : 0)}">
+
+                <div class="field">
+                    <label>Rolled Total (kg)</label>
+                    <input class="rolling-total readonly"
+                           th:value="${#numbers.formatDecimal(
+                               T(java.lang.Math).round(
+                                   ((d.dhool1 != null ? d.dhool1 : 0)
+                                   +(d.dhool2 != null ? d.dhool2 : 0)
+                                   +(d.dhool3 != null ? d.dhool3 : 0)
+                                   +(d.bigBulk != null ? d.bigBulk : 0)) * 100.0
+                               ) / 100.0, 1, 2)}"
+                           readonly>
+                </div>
+
+                <div class="dhool-breakdown">
+                    <div class="dhool-breakdown-title"><i class="fas fa-layer-group" style="margin-right:5px;"></i>Rolling Breakdown</div>
+                    <div class="dhool-grid">
+                        <div class="dhool-item">
+                            <span class="dhool-item-label">Dhool 1</span>
+                            <span class="dhool-item-value" th:text="${#numbers.formatDecimal(d.dhool1 != null ? d.dhool1 : 0, 1, 2)}">0.00</span>
+                        </div>
+                        <div class="dhool-item">
+                            <span class="dhool-item-label">Dhool 2</span>
+                            <span class="dhool-item-value" th:text="${#numbers.formatDecimal(d.dhool2 != null ? d.dhool2 : 0, 1, 2)}">0.00</span>
+                        </div>
+                        <div class="dhool-item">
+                            <span class="dhool-item-label">Dhool 3</span>
+                            <span class="dhool-item-value" th:text="${#numbers.formatDecimal(d.dhool3 != null ? d.dhool3 : 0, 1, 2)}">0.00</span>
+                        </div>
+                        <div class="dhool-item">
+                            <span class="dhool-item-label">Big Bulk</span>
+                            <span class="dhool-item-value" th:text="${#numbers.formatDecimal(d.bigBulk != null ? d.bigBulk : 0, 1, 2)}">0.00</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Temperature Input Field -->
+                <div class="field">
+                    <label>Temperature (°C)</label>
+                    <input name="temp" type="number" step="0.1" min="0"
+                           th:value="${d.temperature != null && d.temperature > 0 ? d.temperature : ''}"
+                           placeholder="e.g., 82.5" required>
+                </div>
+
+                <label style="font-size:11px;font-weight:600;color:#e67e22;letter-spacing:1.2px;text-transform:uppercase;display:block;margin-bottom:8px;">
+                    Moisture Content per Dhool (%)
+                </label>
+                <div class="input-grid" style="margin-bottom:14px;">
+                    <input name="m1" class="moisture-dry" th:value="${d.moistureD1 != null && d.moistureD1 > 0 ? d.moistureD1 : ''}" placeholder="D1 Moisture %" type="number" step="0.1" min="0" max="100" required>
+                    <input name="m2" class="moisture-dry" th:value="${d.moistureD2 != null && d.moistureD2 > 0 ? d.moistureD2 : ''}" placeholder="D2 Moisture %" type="number" step="0.1" min="0" max="100" required>
+                    <input name="m3" class="moisture-dry" th:value="${d.moistureD3 != null && d.moistureD3 > 0 ? d.moistureD3 : ''}" placeholder="D3 Moisture %" type="number" step="0.1" min="0" max="100" required>
+                    <input name="mbb" class="moisture-dry" th:value="${d.moistureBB != null && d.moistureBB > 0 ? d.moistureBB : ''}" placeholder="BB Moisture %" type="number" step="0.1" min="0" max="100" required>
+                </div>
+
+                <label style="font-size:11px;font-weight:600;color:#e67e22;letter-spacing:1.2px;text-transform:uppercase;display:block;margin-bottom:8px;">
+                    Dry Output (kg)
+                </label>
+                <div class="input-grid" style="margin-bottom:14px;">
+                    <input name="d1" class="dry" th:value="${d.dryD1 != null && d.dryD1 > 0 ? d.dryD1 : ''}" type="number" step="0.01" min="0" oninput="calcDry(this)" placeholder="D1" required>
+                    <input name="d2" class="dry" th:value="${d.dryD2 != null && d.dryD2 > 0 ? d.dryD2 : ''}" type="number" step="0.01" min="0" oninput="calcDry(this)" placeholder="D2" required>
+                    <input name="d3" class="dry" th:value="${d.dryD3 != null && d.dryD3 > 0 ? d.dryD3 : ''}" type="number" step="0.01" min="0" oninput="calcDry(this)" placeholder="D3" required>
+                    <input name="bb" class="dry" th:value="${d.dryBigBulk != null && d.dryBigBulk > 0 ? d.dryBigBulk : ''}" type="number" step="0.01" min="0" oninput="calcDry(this)" placeholder="BB" required>
+                </div>
+
+                <div class="loss-row">
+                    <span class="loss-label"><i class="fas fa-fire" style="margin-right:5px;"></i>Dry Loss</span>
+                    <span class="loss-value dryLoss" th:text="${d.dryLoss != null ? #numbers.formatDecimal(d.dryLoss, 1, 2) + ' kg' : '—'}">—</span>
+                </div>
+
+                <button class="btn btn-amber" type="submit">
+                    <i class="fas fa-save"></i>
+                    Update Record
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ── CUSTOM OFFICER TOGGLE LOGIC ── */
+// Prevent mouse wheel from changing number inputs
+document.addEventListener('wheel', function (e) {
+    if (document.activeElement && document.activeElement.type === 'number') {
+        document.activeElement.blur();
+    }
+}, { passive: true });
+
+function toggleCustomOfficer() {
+    const select = document.getElementById('officerSelect');
+    const customField = document.getElementById('customOfficerField');
+    const customInput = document.getElementById('customOfficerName');
+
+    if (select.value === 'Other') {
+        customField.style.display = 'block';
+        customInput.required = true;
+    } else {
+        customField.style.display = 'none';
+        customInput.required = false;
+        customInput.value = '';
+    }
+}
+
+    function applyDateFilter() {
+        const d = document.getElementById('rollingDatePicker').value;
+        if (d) {
+            document.getElementById('hiddenSelectedDate').value = d;
+            document.getElementById('activeDateLabel').innerText = 'Date: ' + d;
+            window.location.href = '/mobile/rolling_dashboard?date=' + d;
+        }
+    }
+
+    (function() {
+        const dp = document.getElementById('rollingDatePicker');
+        if (dp && dp.value) {
+            document.getElementById('activeDateLabel').innerText = 'Date: ' + dp.value;
+        }
+    })();
+
+    /* ── ROLLING SCRIPT ── */
+    function setBatch() {
+        let s = document.getElementById('batchSelect');
+        let dhoolInputs = [
+            document.getElementById('r_d1'),
+            document.getElementById('r_d2'),
+            document.getElementById('r_d3'),
+            document.getElementById('r_bb')
+        ];
+
+        // Ensure proper reset and lock behaviour when unselected
+        if (!s || !s.selectedOptions.length || s.value === "") {
+            document.getElementById('weightIn').value = 'Select a batch above';
+            document.getElementById('dispProdBatch').value = 'Auto-filled';
+            document.getElementById('dispProdLot').value = 'Auto-filled';
+            document.getElementById('batchHeader').innerText = 'Select Batch ID';
+            document.getElementById('officerSelect').value = '';
+            toggleCustomOfficer();
+
+            // Lock Dhool inputs
+            dhoolInputs.forEach(input => {
+                if(input) {
+                    input.setAttribute('readonly', true);
+                    input.style.backgroundColor = "#f5f5f5";
+                    input.style.pointerEvents = "none";
+                    input.value = "";
+                }
+            });
+            calcRolling();
+            return;
+        }
+
+        // 1. Precise Weight Auto-Fill
+        let rawWeight = parseFloat(s.selectedOptions[0].getAttribute('data-weight')) || 0;
+        document.getElementById('weightIn').value = rawWeight.toFixed(2);
+
+        // 2. Production Trackers Auto-Fill
+        let prodBatch = s.selectedOptions[0].getAttribute('data-prodbatch') || '-';
+        let prodLot = s.selectedOptions[0].getAttribute('data-prodlot') || '-';
+        document.getElementById('dispProdBatch').value = prodBatch;
+        document.getElementById('dispProdLot').value = prodLot;
+
+        // 3. Dynamic Officer Auto-Fill (Handles custom names seamlessly)
+        let assignedOfficer = s.selectedOptions[0].getAttribute('data-officer');
+        if (assignedOfficer) {
+            let selectElement = document.getElementById('officerSelect');
+            let optionsArray = Array.from(selectElement.options).map(opt => opt.value);
+
+            if (optionsArray.includes(assignedOfficer)) {
+                selectElement.value = assignedOfficer;
+                toggleCustomOfficer();
+            } else {
+                // If it's a name not in the default dropdown, trigger the custom input!
+                selectElement.value = 'Other';
+                toggleCustomOfficer();
+                document.getElementById('customOfficerName').value = assignedOfficer;
+            }
+        } else {
+            document.getElementById('officerSelect').value = '';
+            toggleCustomOfficer();
+        }
+
+        document.getElementById('batchHeader').innerText = s.value;
+
+        // 4. UNLOCK FIELDS: Remove restrictions to make them editable
+        dhoolInputs.forEach(input => {
+            if (input) {
+                input.removeAttribute('readonly');
+                input.removeAttribute('disabled');
+                input.style.backgroundColor = "#ffffff";
+                input.style.pointerEvents = "auto";
+            }
+        });
+        calcRolling();
+    }
+
+    function calcRolling() {
+        let w  = Math.round((parseFloat(document.getElementById('weightIn').value) || 0) * 100) / 100;
+        let v1 = Math.round((parseFloat(document.getElementById('r_d1').value) || 0) * 100) / 100;
+        let v2 = Math.round((parseFloat(document.getElementById('r_d2').value) || 0) * 100) / 100;
+        let v3 = Math.round((parseFloat(document.getElementById('r_d3').value) || 0) * 100) / 100;
+        let vb = Math.round((parseFloat(document.getElementById('r_bb').value) || 0) * 100) / 100;
+        let t  = Math.round((v1 + v2 + v3 + vb) * 100) / 100;
+        let loss = Math.round((w - t) * 100) / 100;
+        document.getElementById('loss').innerText = w ? loss.toFixed(2) + ' kg' : '—';
+    }
+
+    function validateRolling(e) {
+        document.querySelectorAll('#rollingForm .field-error').forEach(el => el.classList.remove('field-error'));
+        const officer = document.getElementById('officerSelect');
+        const customOfficer = document.getElementById('customOfficerName');
+        const batch   = document.getElementById('batchSelect');
+        const w       = Math.round((parseFloat(document.getElementById('weightIn').value) || 0) * 100) / 100;
+
+        let valid = true;
+        if (!officer.value) { officer.classList.add('field-error'); valid = false; }
+        if (officer.value === 'Other' && !customOfficer.value.trim()) { customOfficer.classList.add('field-error'); valid = false; }
+        if (!batch.value)   { batch.classList.add('field-error');   valid = false; }
+
+        if (!valid) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Missing Fields',
+                text: 'Please select an officer (or type one) and a batch.',
+                icon: 'warning',
+                confirmButtonColor: '#2d6a4f'
+            });
+            return false;
+        }
+
+        if (w <= 0) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'No Weight Loaded',
+                text: 'The selected batch has no withered weight. Select a valid batch.',
+                icon: 'error',
+                confirmButtonColor: '#2d6a4f'
+            });
+            return false;
+        }
+
+        let v1 = Math.round((parseFloat(document.getElementById('r_d1').value) || 0) * 100) / 100;
+        let v2 = Math.round((parseFloat(document.getElementById('r_d2').value) || 0) * 100) / 100;
+        let v3 = Math.round((parseFloat(document.getElementById('r_d3').value) || 0) * 100) / 100;
+        let vb = Math.round((parseFloat(document.getElementById('r_bb').value) || 0) * 100) / 100;
+        let t  = Math.round((v1 + v2 + v3 + vb) * 100) / 100;
+
+        if (t <= 0) {
+            ['r_d1','r_d2','r_d3','r_bb'].forEach(id => { document.getElementById(id).classList.add('field-error'); });
+            e.preventDefault();
+            Swal.fire({
+                title: 'No Output Entered',
+                text: 'Please enter at least one dhool or bulk output value.',
+                icon: 'warning',
+                confirmButtonColor: '#2d6a4f'
+            });
+            return false;
+        }
+
+        if (t > w) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Invalid Output',
+                text: 'Total output (' + t.toFixed(2) + ' kg) cannot exceed weight in (' + w.toFixed(2) + ' kg).',
+                icon: 'error',
+                confirmButtonColor: '#2d6a4f'
+            });
+            return false;
+        }
+        return true;
+    }
+
+    /* ── DRYING SCRIPT ── */
+    function calcDry(el) {
+        let f = el.closest('form');
+        let r = Math.round((parseFloat(f.querySelector('.rolling-total-raw').value) || 0) * 100) / 100;
+        let t = 0;
+        f.querySelectorAll('.dry').forEach(i => { t += Math.round((parseFloat(i.value) || 0) * 100) / 100; });
+        t = Math.round(t * 100) / 100;
+        let loss = Math.round((r - t) * 100) / 100;
+        f.querySelector('.dryLoss').innerText = r ? loss.toFixed(2) + ' kg' : '—';
+    }
+
+    function validateDrying(e, f) {
+        f.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+        const r = Math.round((parseFloat(f.querySelector('.rolling-total-raw').value) || 0) * 100) / 100;
+
+        // 1. Validate All Moisture Percentages (0% - 100%)
+        let moistureValid = true;
+        f.querySelectorAll('.moisture-dry').forEach(i => {
+            let val = parseFloat(i.value);
+            if (!i.value || isNaN(val) || val < 0 || val > 100) {
+                i.classList.add('field-error');
+                moistureValid = false;
+            }
+        });
+
+        if (!moistureValid) {
+            e.preventDefault();
+            Swal.fire({title: 'Invalid Moisture Content', text: 'All moisture metrics must be between 0% and 100%.', icon: 'warning', confirmButtonColor: '#e76f2e'});
+            return false;
+        }
+
+        // 2. Validate Dry Weights
+        let allFilled = true;
+        let t = 0;
+        f.querySelectorAll('.dry').forEach(i => {
+            if (!i.value || i.value.trim() === '') { i.classList.add('field-error'); allFilled = false; }
+            else { t += Math.round((parseFloat(i.value) || 0) * 100) / 100; }
+        });
+
+        if (!allFilled) {
+            e.preventDefault();
+            Swal.fire({title: 'Missing Dry Output', text: 'All four dry fields must be filled.', icon: 'warning', confirmButtonColor: '#e76f2e'});
+            return false;
+        }
+
+        t = Math.round(t * 100) / 100;
+
+        if (t > r) {
+            e.preventDefault();
+            Swal.fire({title: 'Output Exceeds Input', text: 'Dry output (' + t.toFixed(2) + ' kg) cannot exceed rolled total (' + r.toFixed(2) + ' kg).', icon: 'error', confirmButtonColor: '#e76f2e'});
+            return false;
+        }
+        return true;
+    }
+
+    // Auto-switch to Drying tab if returning from a successful rolling submission
+    document.addEventListener("DOMContentLoaded", function() {
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // If the URL has '?success' in it
+        if (urlParams.has('success')) {
+            document.getElementById('rollingTab').classList.remove('active');
+            document.getElementById('dryingTab').classList.add('active');
+        }
+    });
+
+    function logout() {
+        Swal.fire({
+            title: 'Logging out?', icon: 'question', showCancelButton: true,
+            confirmButtonText: 'Yes, logout', confirmButtonColor: '#1b4332', cancelButtonColor: '#e76f2e'
+        }).then(r => { if (r.isConfirmed) document.getElementById('logoutForm').submit(); });
+    }
+</script>
+
+</body>
+</html>

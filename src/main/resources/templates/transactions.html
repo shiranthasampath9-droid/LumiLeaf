@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Transactions | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --green-deep: #1a4a35;
+            --green-mid: #2d7a56;
+            --green-bright: #3FA17A;
+            --green-light: #d4eddf;
+            --green-pale: #eef7f2;
+            --amber: #e8a220;
+            --red-soft: #e85c4a;
+            --ink: #111b14;
+            --slate: #4a5e52;
+            --mist: #8fa899;
+            --border: #d8e8de;
+            --surface: #f5faf7;
+            --white: #ffffff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--surface);
+            font-family: 'DM Sans', sans-serif;
+            color: var(--ink);
+            min-height: 100vh;
+        }
+
+        /* ── Sidebar-style top bar ── */
+        .top-bar {
+            background: var(--green-deep);
+            padding: 0 40px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.2);
+        }
+        .top-bar .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            text-decoration: none;
+        }
+        .top-bar .brand-icon {
+            width: 36px; height: 36px;
+            background: var(--green-bright);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+        }
+        .top-bar .brand-name {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.3rem;
+            letter-spacing: 0.3px;
+        }
+        .top-bar .brand-sub {
+            font-size: 0.68rem;
+            color: rgba(255,255,255,0.5);
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .live-badge {
+            background: rgba(63,161,122,0.2);
+            border: 1px solid rgba(63,161,122,0.4);
+            color: #7ddbb4;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .live-dot {
+            width: 7px; height: 7px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+        .btn-back {
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.8);
+            border: 1px solid rgba(255,255,255,0.15);
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-back:hover { background: rgba(255,255,255,0.14); color: white; }
+
+        /* ── Main layout ── */
+        .page-wrap {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 36px 24px 60px;
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+        }
+        .page-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 2.1rem;
+            color: var(--green-deep);
+            line-height: 1.1;
+        }
+        .page-sub {
+            color: var(--mist);
+            font-size: 0.88rem;
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        /* ── Tab Navigation ── */
+        .tab-nav {
+            display: flex;
+            gap: 4px;
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 6px;
+            margin-bottom: 28px;
+            width: fit-content;
+        }
+        .tab-btn {
+            padding: 10px 22px;
+            border-radius: 11px;
+            border: none;
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--mist);
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tab-btn.active {
+            background: var(--green-deep);
+            color: white;
+            box-shadow: 0 4px 12px rgba(26,74,53,0.25);
+        }
+        .tab-btn:not(.active):hover { color: var(--green-deep); background: var(--green-pale); }
+
+        /* ── Card ── */
+        .card-panel {
+            background: var(--white);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+            margin-bottom: 24px;
+        }
+        .card-header-bar {
+            background: linear-gradient(135deg, var(--green-deep) 0%, var(--green-mid) 100%);
+            padding: 20px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-header-bar .ch-title {
+            font-family: 'DM Serif Display', serif;
+            color: white;
+            font-size: 1.1rem;
+        }
+        .card-header-bar .ch-sub {
+            color: rgba(255,255,255,0.55);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 2px;
+        }
+        .step-pill {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border: 2px solid rgba(255,255,255,0.25);
+            flex-shrink: 0;
+        }
+        .card-body-pad { padding: 28px; }
+
+        /* ── Form Controls ── */
+        label.field-label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--slate);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .form-control, .form-select {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 16px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.92rem;
+            font-weight: 500;
+            color: var(--ink);
+            transition: 0.2s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--green-bright);
+            box-shadow: 0 0 0 3px rgba(63,161,122,0.12);
+            background: white;
+            outline: none;
+        }
+        .form-control::placeholder { color: var(--mist); font-weight: 400; }
+
+        /* ── Stock badge ── */
+        .stock-pill {
+            display: none;
+            background: var(--green-pale);
+            color: var(--green-mid);
+            border: 1.5px solid var(--green-light);
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            align-items: center;
+            gap: 6px;
+        }
+        .stock-pill.show { display: inline-flex; }
+
+        /* ── MAX button ── */
+        .btn-max {
+            background: var(--ink);
+            color: white;
+            border: none;
+            padding: 0 18px;
+            border-radius: 0 12px 12px 0;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-max:hover { background: var(--green-deep); }
+        .input-group .form-control { border-radius: 12px 0 0 12px; }
+
+        /* ── Grade Grid ── */
+        .grade-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 12px;
+        }
+        .grade-tile {
+            background: var(--surface);
+            border: 1.5px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 12px 10px;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .grade-tile:focus-within {
+            border-color: var(--green-bright);
+            background: white;
+            box-shadow: 0 0 0 3px rgba(63,161,122,0.1);
+        }
+        .grade-tile::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--green-bright);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: 0.25s;
+            border-radius: 2px;
+        }
+        .grade-tile:focus-within::before { transform: scaleX(1); }
+        .grade-tile label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--mist);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 7px;
+        }
+        .grade-tile .form-control {
+            background: transparent;
+            border: none;
+            border-bottom: 1.5px solid var(--border);
+            border-radius: 0;
+            padding: 4px 0;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+        .grade-tile .form-control:focus {
+            box-shadow: none;
+            border-bottom-color: var(--green-bright);
+        }
+
+        /* ── Balance Footer ── */
+        .balance-strip {
+            background: linear-gradient(135deg, var(--green-pale) 0%, #e8f5ec 100%);
+            border: 1.5px solid var(--green-light);
+            border-radius: 16px;
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .balance-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--mist);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .balance-nums {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+        .bal-current {
+            font-family: 'DM Serif Display', serif;
+            font-size: 2rem;
+            transition: 0.2s;
+        }
+        .bal-current.ok { color: var(--green-mid); }
+        .bal-current.bad { color: var(--red-soft); }
+        .bal-sep { color: var(--mist); font-size: 1.2rem; }
+        .bal-target { font-size: 1.3rem; font-weight: 700; color: var(--slate); }
+        .bal-unit { font-size: 0.82rem; color: var(--mist); font-weight: 600; }
+
+        .balance-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+        .balance-status-indicator.ok { background: var(--green-light); color: var(--green-mid); }
+        .balance-status-indicator.bad { background: #fce8e6; color: var(--red-soft); }
+
+        /* ── Submit Button ── */
+        .btn-confirm {
+            background: linear-gradient(135deg, var(--green-deep) 0%, var(--green-mid) 100%);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            padding: 18px 28px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            width: 100%;
+            cursor: pointer;
+            transition: 0.25s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 8px 24px rgba(26,74,53,0.25);
+        }
+        .btn-confirm:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 32px rgba(26,74,53,0.32);
+        }
+        .btn-confirm:active { transform: translateY(0); }
+
+        /* ── Officer selector cards ── */
+        .officer-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .officer-card {
+            display: none; /* hidden - managed via select */
+        }
+        .officer-select-wrap { position: relative; }
+        .officer-select-wrap .form-select,
+        .officer-select-wrap .form-control {
+            padding-left: 44px;
+        }
+        .officer-select-wrap .icon-prefix {
+            position: absolute;
+            left: 14px; top: 50%;
+            transform: translateY(-50%);
+            color: var(--mist);
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+
+        /* ── Divider ── */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin: 24px 0 20px;
+        }
+        .section-divider .sd-line { flex: 1; height: 1px; background: var(--border); }
+        .section-divider .sd-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--mist);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        .sd-icon {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+        .sd-icon.minus { background: #fce8e6; color: var(--red-soft); }
+        .sd-icon.plus { background: var(--green-light); color: var(--green-mid); }
+
+        /* ── Audit Table ── */
+        .audit-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .audit-table thead th {
+            background: var(--surface);
+            color: var(--mist);
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 13px 16px;
+            border-bottom: 1.5px solid var(--border);
+            white-space: nowrap;
+        }
+        .audit-table thead th:first-child { border-radius: 12px 0 0 0; }
+        .audit-table thead th:last-child { border-radius: 0 12px 0 0; }
+        .audit-table tbody tr {
+            transition: 0.15s;
+        }
+        .audit-table tbody tr:hover { background: var(--surface); }
+        .audit-table tbody td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+        .audit-table tbody tr:last-child td { border-bottom: none; }
+
+        .officer-avatar {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--green-bright), var(--green-deep));
+            color: white;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 800;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+        .officer-name-cell {
+            display: flex;
+            align-items: center;
+        }
+
+        .badge-source {
+            background: #fce8e6;
+            color: var(--red-soft);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-size: 0.75rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+        .badge-qty-main {
+            color: var(--red-soft);
+            font-weight: 800;
+            font-size: 0.95rem;
+        }
+        .distribution-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .dist-badge {
+            background: var(--green-pale);
+            color: var(--green-mid);
+            border: 1px solid var(--green-light);
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .timestamp-main { font-weight: 700; font-size: 0.88rem; }
+        .timestamp-sub { font-size: 0.75rem; color: var(--mist); font-weight: 500; margin-top: 2px; }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--mist);
+        }
+        .empty-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+            opacity: 0.3;
+        }
+
+        /* ── Tabs panel visibility ── */
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .top-bar { padding: 0 16px; }
+            .page-wrap { padding: 20px 16px 48px; }
+            .page-title { font-size: 1.5rem; }
+            .card-body-pad { padding: 18px; }
+            .grade-grid { grid-template-columns: repeat(3, 1fr); }
+            .balance-strip { flex-direction: column; align-items: flex-start; gap: 14px; }
+            .tab-nav { width: 100%; }
+            .tab-btn { flex: 1; justify-content: center; padding: 9px 10px; font-size: 0.8rem; }
+            .audit-table { font-size: 0.82rem; }
+            .audit-table thead th, .audit-table tbody td { padding: 10px 10px; }
+            .distribution-badges { max-width: 180px; }
+        }
+        @media (max-width: 480px) {
+            .grade-grid { grid-template-columns: repeat(2, 1fr); }
+            .page-title { font-size: 1.3rem; }
+            .top-bar .brand-name { font-size: 1.1rem; }
+            .top-bar .brand-sub { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Top Bar ── -->
+<div class="top-bar">
+    <a href="/qa_dashboard" class="brand">
+        <div class="brand-icon"><i class="fas fa-leaf"></i></div>
+        <div>
+            <div class="brand-name">LumiLeaf</div>
+            <div class="brand-sub">QA Control System</div>
+        </div>
+    </a>
+    <div class="top-bar-right">
+        <div class="live-badge">
+            <div class="live-dot"></div>
+            Live Feed
+        </div>
+        <a href="/qa_dashboard" class="btn-back">
+            <i class="fas fa-arrow-left"></i>
+            <span class="d-none d-md-inline">Dashboard</span>
+        </a>
+    </div>
+</div>
+<div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <span th:text="${error}">Error Message</span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<!-- ── Page Content ── -->
+<div class="page-wrap">
+
+    <div class="page-header">
+        <h1 class="page-title">Grade Transaction Engine</h1>
+        <p class="page-sub">Convert and redistribute tea grades across inventory with mass balance verification</p>
+    </div>
+
+    <!-- Tab Nav -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('form', this)">
+            <i class="fas fa-exchange-alt"></i> New Transaction
+        </button>
+        <button class="tab-btn" onclick="switchTab('audit', this)">
+            <i class="fas fa-scroll"></i> Audit Trail
+        </button>
+    </div>
+
+    <!-- ══ TAB: New Transaction ══ -->
+    <div class="tab-panel active" id="tab-form">
+        <form action="/qa/save-transaction" method="POST" id="txForm">
+
+            <!-- Officer Assignment Card -->
+            <div class="card-panel mb-4">
+                <div class="card-header-bar">
+                    <div>
+                        <div class="ch-title">Officer on Duty</div>
+                        <div class="ch-sub">Select the QA officer handling this transaction</div>
+                    </div>
+                    <i class="fas fa-user-shield" style="color:rgba(255,255,255,0.3); font-size:1.4rem;"></i>
+                </div>
+                <div class="card-body-pad">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="field-label">QA Officer</label>
+                            <div class="officer-select-wrap">
+                                <i class="fas fa-user icon-prefix"></i>
+                                <input type="text" name="officer" id="officerSelect" class="form-control" placeholder="Type officer name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-7 d-flex align-items-end">
+                            <div id="officerPreview" class="d-flex align-items-center gap-3 p-3 rounded-3" style="background:var(--surface); border: 1.5px solid var(--border); width:100%; min-height:54px;">
+                                <div id="previewAvatar" class="officer-avatar" style="display:none;">--</div>
+                                <div id="previewName" style="font-weight:600; color:var(--mist); font-size:0.9rem;">No officer selected</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source Grade Card -->
+            <div class="card-panel mb-4">
+                <div class="card-header-bar">
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div class="step-pill">1</div>
+                        <div>
+                            <div class="ch-title">Source Grade — Deduct From</div>
+                            <div class="ch-sub">Select the grade to convert and the quantity to remove</div>
+                        </div>
+                    </div>
+                    <i class="fas fa-minus-circle" style="color:#f87171; font-size:1.4rem;"></i>
+                </div>
+                <div class="card-body-pad">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label class="field-label">
+                                Grade to Convert
+                            </label>
+                            <select name="sourceGrade" id="sourceGrade" class="form-select" required>
+                                <option value="">— Select Grade —</option>
+                                <option value="OP1">OP1 — Orange Pekoe 1</option>
+                                <option value="OPA">OPA — Orange Pekoe A</option>
+                                <option value="BOP1">BOP1 — Broken OP 1</option>
+                                <option value="PEKOE">PEKOE</option>
+                                <option value="BOP">BOP — Broken Orange Pekoe</option>
+                                <option value="BOPF">BOPF — BOP Fannings</option>
+                                <option value="EB">EB — Electrostatic Broken</option>
+                                <option value="FFSP">FFSP</option>
+                                <option value="FFEXS">FFEXS</option>
+                                <option value="DUST">DUST</option>
+                                <option value="BM">BM — Broken Mixed</option>
+                                <option value="BP">BP — Broken Pekoe</option>
+                                <option value="REFUSEDTEA">REFUSE — Refused Tea</option>
+                            </select>
+                            <div id="stockPill" class="stock-pill mt-2">
+                                <i class="fas fa-box"></i>
+                                Available: <strong id="availableAmount">0.00</strong> KG
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="field-label">Quantity to Remove (KG)</label>
+                            <div class="input-group">
+                                <input type="number" step="0.01" name="sourceQty" id="sourceQty" class="form-control" placeholder="0.00" required>
+                                <button class="btn-max" type="button" id="btnMax">MAX</button>
+                            </div>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <div style="width:100%; text-align:center; padding:12px 8px; background:var(--surface); border-radius:12px; border:1.5px dashed var(--border);">
+                                <div style="font-size:0.65rem; font-weight:700; color:var(--mist); text-transform:uppercase; letter-spacing:0.8px;">Selected</div>
+                                <div id="selectedGradeBig" style="font-family:'DM Serif Display',serif; font-size:1.3rem; color:var(--green-deep); margin-top:2px;">—</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Grades Card -->
+            <div class="card-panel mb-4">
+                <div class="card-header-bar">
+                    <div style="display:flex; align-items:center; gap:14px;">
+                        <div class="step-pill">2</div>
+                        <div>
+                            <div class="ch-title">Target Grades — Distribute Into</div>
+                            <div class="ch-sub">Allocate the converted weight across target grades</div>
+                        </div>
+                    </div>
+                    <i class="fas fa-plus-circle" style="color:#6ee7b7; font-size:1.4rem;"></i>
+                </div>
+                <div class="card-body-pad">
+                    <div class="grade-grid mb-5">
+                        <div class="grade-tile"><label>OP1</label><input type="number" step="0.01" name="op1" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>OPA</label><input type="number" step="0.01" name="opa" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>BOP1</label><input type="number" step="0.01" name="bop1" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>PEKOE</label><input type="number" step="0.01" name="pekoe" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>BOP</label><input type="number" step="0.01" name="bop" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>BOPF</label><input type="number" step="0.01" name="bopf" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>EB</label><input type="number" step="0.01" name="eb" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>FFSP</label><input type="number" step="0.01" name="ffsp" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>FFEXS</label><input type="number" step="0.01" name="ffexs" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>DUST</label><input type="number" step="0.01" name="dust" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>BM</label><input type="number" step="0.01" name="bm" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>BP</label><input type="number" step="0.01" name="bp" class="form-control target-qty" value="0"></div>
+                        <div class="grade-tile"><label>REFUSE</label><input type="number" step="0.01" name="refusedTea" class="form-control target-qty" value="0"></div>
+                    </div>
+
+                    <!-- Balance Strip -->
+                    <div class="balance-strip mb-4">
+                        <div>
+                            <div class="balance-label">Mass Balance Verification</div>
+                            <div style="font-size:0.82rem; color:var(--slate); font-weight:500; margin-top:4px;">Distributed weight must match source quantity exactly</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+                            <div class="balance-nums">
+                                <span id="calcTotal" class="bal-current bad">0.00</span>
+                                <span class="bal-sep">/</span>
+                                <span id="requiredTotal" class="bal-target">0.00</span>
+                                <span class="bal-unit">KG</span>
+                            </div>
+                            <div id="balanceIndicator" class="balance-status-indicator bad">
+                                <i class="fas fa-times-circle"></i>
+                                Mismatch
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-confirm">
+                        <i class="fas fa-check-circle"></i>
+                        Confirm Conversion & Update Ledger
+                    </button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+
+    <!-- ══ TAB: Audit Trail ══ -->
+    <div class="tab-panel" id="tab-audit">
+        <div class="card-panel">
+            <div class="card-header-bar">
+                <div>
+                    <div class="ch-title">Audit Trail & Transaction History</div>
+                    <div class="ch-sub">All grade conversions with officer accountability</div>
+                </div>
+                <i class="fas fa-history" style="color:rgba(255,255,255,0.3); font-size:1.4rem;"></i>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="audit-table">
+                    <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>Officer</th>
+                        <th>Source Grade</th>
+                        <th>Removed</th>
+                        <th>Distributed Into</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <!-- Thymeleaf rows -->
+                    <tr th:each="tx : ${transactions}">
+                        <td>
+                            <div class="timestamp-main" th:text="${tx.date}">12 Jun 2025</div>
+                            <div class="timestamp-sub" th:text="${tx.time}">09:41 AM</div>
+                        </td>
+                        <td>
+                            <div class="officer-name-cell">
+                                <div class="officer-avatar" th:text="${#strings.substring(tx.officer, 0, 2)}">NR</div>
+                                <span style="font-weight:600; font-size:0.88rem;" th:text="${tx.officer}">Officer</span>
+                            </div>
+                        </td>
+                        <td><span class="badge-source" th:text="${tx.sourceGrade}">BOP</span></td>
+                        <td><span class="badge-qty-main" th:text="'−' + ${tx.sourceQty} + ' KG'">−120 KG</span></td>
+                        <td>
+                            <div class="distribution-badges">
+                                <span th:if="${tx.op1 > 0}" class="dist-badge" th:text="'OP1 +' + ${tx.op1}"></span>
+                                <span th:if="${tx.opa > 0}" class="dist-badge" th:text="'OPA +' + ${tx.opa}"></span>
+                                <span th:if="${tx.bop1 > 0}" class="dist-badge" th:text="'BOP1 +' + ${tx.bop1}"></span>
+                                <span th:if="${tx.pekoe > 0}" class="dist-badge" th:text="'PEKOE +' + ${tx.pekoe}"></span>
+                                <span th:if="${tx.bop > 0}" class="dist-badge" th:text="'BOP +' + ${tx.bop}"></span>
+                                <span th:if="${tx.bopf > 0}" class="dist-badge" th:text="'BOPF +' + ${tx.bopf}"></span>
+                                <span th:if="${tx.eb > 0}" class="dist-badge" th:text="'EB +' + ${tx.eb}"></span>
+                                <span th:if="${tx.ffsp > 0}" class="dist-badge" th:text="'FFSP +' + ${tx.ffsp}"></span>
+                                <span th:if="${tx.ffexs > 0}" class="dist-badge" th:text="'FFEXS +' + ${tx.ffexs}"></span>
+                                <span th:if="${tx.dust > 0}" class="dist-badge" th:text="'DUST +' + ${tx.dust}"></span>
+                                <span th:if="${tx.bm > 0}" class="dist-badge" th:text="'BM +' + ${tx.bm}"></span>
+                                <span th:if="${tx.bp > 0}" class="dist-badge" th:text="'BP +' + ${tx.bp}"></span>
+                                <span th:if="${tx.refusedTea > 0}" class="dist-badge" th:text="'REFUSE +' + ${tx.refusedTea}"></span>
+                            </div>
+                        </td>
+                    </tr>
+                    <!-- Sample rows for preview (remove in production) -->
+                    <tr class="sample-row">
+                        <td>
+                            <div class="timestamp-main">07 May 2025</div>
+                            <div class="timestamp-sub">08:14 AM</div>
+                        </td>
+                        <td>
+                            <div class="officer-name-cell">
+                                <div class="officer-avatar">නි</div>
+                                <span style="font-weight:600; font-size:0.88rem;">නිල්මිණි රත්නායක</span>
+                            </div>
+                        </td>
+                        <td><span class="badge-source">BOP1</span></td>
+                        <td><span class="badge-qty-main">−240.00 KG</span></td>
+                        <td>
+                            <div class="distribution-badges">
+                                <span class="dist-badge">BOP +120.00</span>
+                                <span class="dist-badge">BOPF +80.00</span>
+                                <span class="dist-badge">DUST +40.00</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="sample-row">
+                        <td>
+                            <div class="timestamp-main">06 May 2025</div>
+                            <div class="timestamp-sub">02:32 PM</div>
+                        </td>
+                        <td>
+                            <div class="officer-name-cell">
+                                <div class="officer-avatar">ශ්‍රී</div>
+                                <span style="font-weight:600; font-size:0.88rem;">ශ්‍රීයාල් ජයසිංහ</span>
+                            </div>
+                        </td>
+                        <td><span class="badge-source">OP1</span></td>
+                        <td><span class="badge-qty-main">−180.00 KG</span></td>
+                        <td>
+                            <div class="distribution-badges">
+                                <span class="dist-badge">OPA +90.00</span>
+                                <span class="dist-badge">PEKOE +60.00</span>
+                                <span class="dist-badge">BOP1 +30.00</span>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="sample-row">
+                        <td>
+                            <div class="timestamp-main">05 May 2025</div>
+                            <div class="timestamp-sub">11:05 AM</div>
+                        </td>
+                        <td>
+                            <div class="officer-name-cell">
+                                <div class="officer-avatar">රු</div>
+                                <span style="font-weight:600; font-size:0.88rem;">රුවන් ගමගේ</span>
+                            </div>
+                        </td>
+                        <td><span class="badge-source">PEKOE</span></td>
+                        <td><span class="badge-qty-main">−95.50 KG</span></td>
+                        <td>
+                            <div class="distribution-badges">
+                                <span class="dist-badge">BOP +55.00</span>
+                                <span class="dist-badge">DUST +40.50</span>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let stockData = {};
+    const sourceSelect  = document.getElementById('sourceGrade');
+    const sourceInput   = document.getElementById('sourceQty');
+    const targetInputs  = document.querySelectorAll('.target-qty');
+    const calcLabel     = document.getElementById('calcTotal');
+    const requiredLabel = document.getElementById('requiredTotal');
+    const stockPill     = document.getElementById('stockPill');
+    const availableSpan = document.getElementById('availableAmount');
+    const selectedBig   = document.getElementById('selectedGradeBig');
+    const balIndicator  = document.getElementById('balanceIndicator');
+    const officerSelect = document.getElementById('officerSelect');
+    const previewAvatar = document.getElementById('previewAvatar');
+    const previewName   = document.getElementById('previewName');
+
+    // ── Tab switching ──
+    function switchTab(id, btn) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + id).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    // ── Officer preview ── (uses 'input' so it updates live as a text field is typed into)
+    officerSelect.addEventListener('input', function() {
+        if (this.value) {
+            const name = this.value;
+            const initials = name.slice(0, 2);
+            previewAvatar.textContent = initials;
+            previewAvatar.style.display = 'inline-flex';
+            previewName.textContent = name;
+            previewName.style.color = 'var(--ink)';
+        } else {
+            previewAvatar.style.display = 'none';
+            previewName.textContent = 'No officer selected';
+            previewName.style.color = 'var(--mist)';
+        }
+    });
+
+    // ── Fetch live stock ──
+    fetch('/api/qa/grade-stock')
+        .then(res => res.json())
+        .then(data => { stockData = data; })
+        .catch(() => {}); // graceful if API not available in preview
+
+    // ── Source grade change ──
+    sourceSelect.addEventListener('change', function() {
+        const key = this.value === "REFUSEDTEA" ? "REFUSE" : this.value;
+        const available = stockData[key] || 0;
+        const label = this.options[this.selectedIndex].text.split('—')[0].trim();
+
+        if (this.value) {
+            stockPill.classList.add('show');
+            availableSpan.textContent = available.toFixed(2);
+            selectedBig.textContent = label;
+        } else {
+            stockPill.classList.remove('show');
+            selectedBig.textContent = '—';
+        }
+        updateBalance();
+    });
+
+    // ── MAX button ──
+    document.getElementById('btnMax').addEventListener('click', () => {
+        if (!sourceSelect.value) {
+            Swal.fire({ title: 'Select a Grade', text: 'Please select a grade first.', icon: 'info', confirmButtonColor: '#1a4a35' });
+            return;
+        }
+        sourceInput.value = availableSpan.textContent;
+        updateBalance();
+    });
+
+    // ── Balance update ──
+    function updateBalance() {
+        const sourceVal = parseFloat(sourceInput.value) || 0;
+        let targetTotal = 0;
+        targetInputs.forEach(inp => targetTotal += parseFloat(inp.value) || 0);
+
+        requiredLabel.textContent = sourceVal.toFixed(2);
+        calcLabel.textContent = targetTotal.toFixed(2);
+
+        const balanced = Math.abs(sourceVal - targetTotal) < 0.01 && sourceVal > 0;
+
+        if (balanced) {
+            calcLabel.className = 'bal-current ok';
+            balIndicator.className = 'balance-status-indicator ok';
+            balIndicator.innerHTML = '<i class="fas fa-check-circle"></i> Balanced';
+        } else {
+            calcLabel.className = 'bal-current bad';
+            balIndicator.className = 'balance-status-indicator bad';
+            balIndicator.innerHTML = '<i class="fas fa-times-circle"></i> Mismatch';
+        }
+    }
+
+    sourceInput.addEventListener('input', updateBalance);
+    targetInputs.forEach(inp => inp.addEventListener('input', updateBalance));
+
+    // ── Fix: select existing value on focus so typing replaces it instead of appending after the default "0" ──
+    function selectOnFocus() { this.select(); }
+    sourceInput.addEventListener('focus', selectOnFocus);
+    targetInputs.forEach(inp => inp.addEventListener('focus', selectOnFocus));
+
+    // ── Fix: stop mouse-wheel scroll from silently incrementing/decrementing number inputs ──
+    // (When the page scrolls while the cursor happens to be resting over a focused number input,
+    // the browser treats the wheel event as a spinner nudge instead of a page scroll. Blurring
+    // the input on wheel restores normal page-scroll behavior and stops values like 100 silently
+    // becoming 99.98.)
+    function blurOnWheel() { this.blur(); }
+    sourceInput.addEventListener('wheel', blurOnWheel, { passive: true });
+    targetInputs.forEach(inp => inp.addEventListener('wheel', blurOnWheel, { passive: true }));
+
+    // ── Form submission guard ──
+    document.getElementById('txForm').addEventListener('submit', function(e) {
+        const sourceVal    = parseFloat(sourceInput.value) || 0;
+        const available    = parseFloat(availableSpan.textContent) || 0;
+        let targetTotal    = 0;
+        targetInputs.forEach(inp => targetTotal += parseFloat(inp.value) || 0);
+
+        if (!officerSelect.value.trim()) {
+            e.preventDefault();
+            Swal.fire({ title: 'Officer Required', text: 'Please select the QA officer handling this transaction.', icon: 'warning', confirmButtonColor: '#1a4a35' });
+            return;
+        }
+
+        if (sourceVal > (available + 0.01)) {
+            e.preventDefault();
+            Swal.fire({ title: 'Insufficient Stock', text: `Requested ${sourceVal} KG but only ${available} KG is available.`, icon: 'error', confirmButtonColor: '#1a4a35' });
+            return;
+        }
+
+        if (sourceVal <= 0 || Math.abs(sourceVal - targetTotal) > 0.01) {
+            e.preventDefault();
+            Swal.fire({ title: 'Mass Balance Error', text: 'Total distributed weight must exactly match the source quantity.', icon: 'warning', confirmButtonColor: '#1a4a35' });
+        }
+    });
+</script>
+</body>
+</html>

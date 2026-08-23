@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Master Traceability Report | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-green: #409176;
+            --soft-bg: #f4f7f6;
+            --muted: #6c757d;
+            --card-border: #e6eaea;
+        }
+
+        /* Page */
+        body {
+            background-color: var(--soft-bg);
+            font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            color: #222;
+        }
+
+        /* Note / frame around header + order items */
+        .note-frame {
+            max-width: 920px;
+            margin: 1.25rem auto;
+            background: linear-gradient(180deg, #ffffff, #fbfdfb);
+            border: 2px solid var(--card-border);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(16,37,49,0.06);
+            padding: 20px;
+            overflow: visible;
+        }
+
+        /* Invoice header (keeps its look but modernized) */
+        .invoice-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.4rem;
+            background: linear-gradient(90deg, rgba(64,145,118,0.96), rgba(58,135,112,0.94));
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 6px 18px rgba(64,145,118,0.12);
+        }
+
+        .invoice-left {
+            display:flex;
+            gap:1rem;
+            align-items:center;
+        }
+
+        .label-logo {
+            width: 140px;
+            height: auto;
+            object-fit: contain;
+            margin-bottom: 0;
+            flex-shrink: 0;
+        }
+
+        .company-title {
+            font-size: 1.4rem;
+            letter-spacing: 0.8px;
+            color: #ffffff;
+            margin: 0;
+            font-weight: 800;
+        }
+
+        .invoice-meta {
+            margin-top: 6px;
+            color: rgba(255,255,255,0.9);
+            font-weight: 600;
+        }
+
+        .qr-box {
+            display: inline-block;
+            border: 3px solid rgba(255,255,255,0.85);
+            border-radius: 10px;
+            padding: 8px;
+            background: white;
+        }
+        .qr-box img { width: 2.6in; height: 2.6in; display: block; }
+
+        /* Trace cards & content */
+        .trace-card {
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(10,20,24,0.04);
+            margin-bottom: 1.25rem;
+            overflow: hidden;
+            background: #fff;
+        }
+        .trace-header {
+            padding: 1.1rem 1.3rem;
+            border-bottom: 1px dashed #e9ecef;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap: 1rem;
+        }
+
+        .data-section {
+            padding: 1.25rem;
+            background: #fafafc;
+            border-radius: 10px;
+            border: 1px solid #f1f3f4;
+            height: 100%;
+        }
+        .data-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            color: var(--muted);
+            font-weight: 700;
+            letter-spacing: 0.6px;
+            margin-bottom: 0.2rem;
+        }
+        .data-value {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #212529;
+        }
+        .badge-qa { font-size: 0.85rem; padding: 0.45em 0.95em; }
+
+        /* Farmer modal & lightbox (unchanged functional) */
+        .farmer-profile-header { display:flex; flex-direction:column; align-items:center; padding-bottom:1rem; margin-bottom:1rem; border-bottom:1px solid #eee; }
+        .farmer-avatar { width:120px; height:120px; border-radius:50%; object-fit:cover; border:4px solid #fff; box-shadow:0 2px 12px rgba(0,0,0,0.15); cursor:zoom-in; transition: transform .15s ease; }
+        .farmer-avatar:hover { transform:scale(1.03); }
+        .farmer-avatar-placeholder { width:120px; height:120px; border-radius:50%; background:#e9ecef; display:flex; align-items:center; justify-content:center; color:#adb5bd; font-size:2.5rem; border:4px solid #fff; box-shadow:0 2px 12px rgba(0,0,0,0.15); }
+        .farmer-name-title { font-weight:700; font-size:1.3rem; margin-top:0.75rem; color:#212529; }
+        .farmer-id-badge { font-size:0.8rem; color:#6c757d; background:#f1f3f5; padding:2px 10px; border-radius:20px; margin-top:0.25rem; }
+
+        .land-photo-card { border:1px solid #eee; border-radius:12px; overflow:hidden; margin-bottom:0.75rem; text-align:left; background:#fafafa; }
+        .land-photo-card .label { font-size:0.75rem; text-transform:uppercase; font-weight:700; color:#6c757d; padding:8px 12px 0 12px; letter-spacing:0.5px; }
+        .land-photo-card img { width:100%; height:160px; object-fit:cover; cursor:zoom-in; display:block; margin-top:6px; }
+        .land-photo-empty { padding:1.5rem; text-align:center; color:#adb5bd; font-size:0.85rem; }
+        .map-link-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:10px; border-radius:10px; border:none; background:#e8f5e9; color:#2e7d32; font-weight:600; font-size:0.9rem; text-decoration:none; margin-top:0.5rem; }
+        .map-link-btn:hover { background:#d5ecd7; color:#1b5e20; }
+
+        /* Lightbox for maximized photo view */
+        .lightbox-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:20000; align-items:center; justify-content:center; cursor:zoom-out; }
+        .lightbox-overlay.active { display:flex; }
+        .lightbox-overlay img { max-width:90vw; max-height:90vh; border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,0.5); }
+        .lightbox-close { position:absolute; top:20px; right:30px; color:white; font-size:2.2rem; cursor:pointer; background:none; border:none; line-height:1; }
+
+        /* Print styles */
+        @media print {
+            body { background-color: white !important; }
+            .detailed-data, .btn, .trace-warning { display:none !important; }
+            .note-frame { border: 2px solid #000 !important; box-shadow: none !important; background: white !important; padding: 12px !important; }
+            .invoice-header { color: black !important; background: white !important; border: 2px solid #000 !important; border-radius: 10px !important; box-shadow: none; padding: 1rem !important; margin-bottom: 1rem !important; }
+            .invoice-header .container { max-width: 620px !important; margin: 0 auto !important; }
+            .invoice-header h1, .invoice-header strong, .invoice-header .text-white-50 { color: black !important; }
+            .company-title { color: black !important; font-weight: 800 !important; }
+            .trace-card { border: none !important; border-bottom: 1px dashed #ccc !important; box-shadow: none; border-radius: 0; margin-bottom: 1rem; padding-bottom: 1rem; }
+            .trace-header { padding: 0; border: none; }
+            .card-body { padding: 0 !important; }
+            .qr-box { border-color: #000 !important; }
+        }
+
+        /* small helpers */
+        .small-muted { color: var(--muted); font-size: 0.86rem; }
+    </style>
+</head>
+<body>
+
+<div class="note-frame">
+
+    <div class="invoice-header mb-3">
+        <div class="invoice-left">
+            <img src="/lumbini_logo.png" class="label-logo" alt="Lumbini logo">
+            <div>
+                <div class="small text-white-50 text-uppercase fw-bold mb-1" style="opacity:0.95;">Commercial Dispatch Note</div>
+                <div class="company-title">Lumbini Tea Valley Ceylon</div>
+
+                <h1 class="fw-bold mb-0" th:text="${invoiceNumber}" style="font-size:1.25rem; margin-top:8px;">INV-000</h1>
+
+                <div class="invoice-meta">
+                    <span style="display:block;">Product: <strong class="text-white" th:text="${productName != null ? productName : 'Custom Blend'}">Product Name</strong></span>
+                    <span style="display:block; margin-top:2px;">Buyer: <strong class="text-white" th:text="${buyer}">Buyer Name</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-end">
+            <div class="qr-box text-center">
+                <img id="qrCodeImage" th:src="'data:image/png;base64,' + ${qrCode}" alt="QR Code">
+                <div class="mt-1 small fw-bold" style="color: var(--primary-green); font-size: 10px;">SCAN FOR TRACEABILITY</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order line heading placed inside the note-frame so it's visually inside the border -->
+    <h5 class="fw-bold text-muted mb-3" style="margin-left:6px;">Order Line Items:</h5>
+
+    <!-- Trace item(s) - unchanged logic; they will appear inside the bordered note-frame -->
+    <div th:each="node : ${traceTree}"
+         th:if="${node.status == 'APPROVED'}"
+         class="card trace-card">
+
+        <div class="trace-header">
+            <div>
+                <h4 class="fw-bold text-dark mb-0" style="font-size:1.05rem;">
+                    Grade: <span th:text="${node.grade}"></span>
+                    <span class="text-muted ms-2 fs-5" style="font-size:0.95rem;">(<span th:text="${node.quantity}"></span> kg)</span>
+                </h4>
+            </div>
+
+            <div th:if="${node.batchNumber != 'FROM-REMNANTS'}">
+                <span th:if="${(node.production != null and node.production.status == 'APPROVED') or (node.stockLot != null and node.stockLot.status == 'APPROVED') or (node.status == 'APPROVED')}" class="badge bg-success badge-qa rounded-pill">
+                    <i class="fas fa-check-circle me-1"></i> QA APPROVED
+                </span>
+                <span th:unless="${(node.production != null and node.production.status == 'APPROVED') or (node.stockLot != null and node.stockLot.status == 'APPROVED') or (node.status == 'APPROVED')}" class="badge bg-warning text-dark badge-qa rounded-pill">
+                    <i class="fas fa-clock me-1"></i> PENDING QA
+                </span>
+            </div>
+
+            <div th:if="${node.batchNumber == 'FROM-REMNANTS'}">
+                <span class="badge bg-success badge-qa rounded-pill"><i class="fas fa-check-double me-1"></i> PAST QA VERIFIED</span>
+            </div>
+        </div>
+
+        <div class="card-body p-4 bg-white">
+
+            <!-- Stock Production lot summary (if this trace node references a consolidated stock lot) -->
+            <div th:if="${node.stockLot != null}" class="mb-3 p-3 bg-light rounded-3 border d-print-none">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <div class="small text-muted">Stock Lot</div>
+                        <div class="fw-bold" style="font-size:1.05rem;">Lot: <span th:text="${node.displayLotNumber}"></span></div>
+                        <div class="small text-muted">Status: <span th:text="${node.stockLot.status}"></span></div>
+                    </div>
+                    <div class="text-end">
+                    </div>
+                </div>
+
+                <div th:if="${node.stockBatches != null}" class="pt-2">
+                    <div class="small text-muted mb-1">Constituent Production Batches:</div>
+                    <ul class="list-unstyled mb-0">
+                        <li th:each="sb : ${node.stockBatches}" class="mb-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong th:text="${sb.lotNumber}">LOT-123</strong>
+                                <small th:if="${sb['productionId'] != null}" class="text-muted ms-2">(<span th:text="${sb['productionId']}">PROD-ID</span>)</small>
+                                <small th:if="${sb['status'] != null}" class="ms-2 small text-muted">- <span th:text="${sb['status']}">APPROVED</span></small>
+                                <div th:if="${sb['lotNumberFull'] != null}" class="d-block text-muted small" th:text="${sb['lotNumberFull']}" style="font-size:0.8rem;"></div>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-2"
+                                        th:attr="onclick=|showBatchContribution(${sb['id']}, '${sb['lotNumber']}')|"
+                                        th:title="${sb['lotNumberFull'] != null ? sb['lotNumberFull'] : ''}">
+                                    <i class="fas fa-users me-1"></i>Farmer Contribution
+                                </button>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div th:if="${node.batchNumber != 'FROM-REMNANTS' and node.production == null}" class="p-4 bg-white rounded-3 border border-secondary border-opacity-25 detailed-data">
+                <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-box-open me-2"></i>Verified Source Record</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="data-label">Recorded Source Batch</div>
+                        <div class="data-value text-dark fs-5" th:text="${node.batchNumber ?: 'N/A'}"></div>
+                    </div>
+
+                    <div class="col-md-4" th:if="${node.blendingRef != null and node.blendingRef != ''}">
+                        <div class="data-label">Blending Reference</div>
+                        <div class="data-value text-primary fs-5" th:text="${node.blendingRef}"></div>
+                    </div>
+
+                    <div class="col-md-12 mt-2">
+                        <p class="mb-0 text-muted" style="font-size: 0.85rem;">
+                            <i class="fas fa-info-circle me-1"></i> Detailed environmental tracking (temperature/humidity) is unavailable for this specific entry. This indicates legacy stock.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div th:if="${node.batchNumber != 'FROM-REMNANTS' and node.production != null}" class="row g-4 detailed-data">
+                <div class="col-md-3">
+                    <div class="data-section">
+                        <h6 class="fw-bold text-secondary mb-3"><i class="fas fa-scale-balanced me-2"></i>Weighing Point</h6>
+                        <div th:if="${node.waiting == null or #lists.isEmpty(node.waiting)}" class="text-muted small">N/A</div>
+                        <div th:each="w : ${node.waiting}" class="mb-3 pb-2 border-bottom">
+                            <div class="data-label">Batch ID</div>
+                            <div class="data-value" style="font-size: 0.95rem;" th:text="${w.batchId ?: 'N/A'}"></div>
+                            <div class="data-label mt-2">Plucked Section</div>
+                            <div class="data-value" style="font-size: 0.95rem;" th:text="${w.section ?: 'N/A'}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="data-section">
+                        <h6 class="fw-bold text-info mb-3"><i class="fas fa-wind me-2"></i>Withering</h6>
+                        <div th:if="${node.withering == null or #lists.isEmpty(node.withering)}" class="text-muted small">N/A</div>
+                        <div th:each="wth : ${node.withering}" class="mb-3 pb-2 border-bottom">
+                            <div class="data-label">Time (Start - End)</div>
+                            <div class="data-value" style="font-size: 0.95rem;">
+                                <span th:text="${wth.startTime ?: '--:--'}"></span> to
+                                <span th:text="${wth.endTime ?: '--:--'}"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="data-section">
+                        <h6 class="fw-bold text-warning mb-3"><i class="fas fa-arrows-rotate me-2"></i>Rolling & Drying</h6>
+                        <div class="mb-3">
+                            <div class="data-label">Temperature</div>
+                            <div class="data-value" th:text="${node.production?.temperature != null ? node.production.temperature + ' °C' : 'N/A'}"></div>
+                        </div>
+                        <div>
+                            <div class="data-label">Moisture Level</div>
+                            <div class="data-value" th:text="${node.production?.moistureContent != null ? node.production.moistureContent + ' %' : 'N/A'}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="data-section">
+                        <h6 class="fw-bold text-danger mb-3"><i class="fas fa-thermometer-half me-2"></i>Room Conditions</h6>
+                        <div class="mb-3">
+                            <div class="data-label">Production Lot #</div>
+                            <div class="data-value" th:text="${node.production?.lotNumber ?: 'N/A'}"></div>
+                        </div>
+                        <div>
+                            <div class="data-label">Room Humidity</div>
+                            <div class="data-value" th:text="${node.production?.humidity != null ? node.production.humidity + ' %' : 'N/A'}"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div th:if="${node.farmerContributions != null and !#lists.isEmpty(node.farmerContributions)}"
+                 class="mt-4 p-4 bg-light rounded-3 border detailed-data">
+                <h6 class="fw-bold text-success mb-3"><i class="fas fa-users me-2"></i>Farmer Contribution</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0" style="font-size: 0.85rem;">
+                        <thead>
+                        <tr>
+                            <th>Farmer ID</th>
+                            <th>Name</th>
+                            <th class="text-end">% of Source</th>
+                            <th class="text-end">Allocated</th>
+                            <th class="text-end">Profile</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="f : ${node.farmerContributions}">
+                            <td th:text="${f.supplierId}"></td>
+                            <td th:text="${f.supplierName}"></td>
+                            <td class="text-end" th:text="${f.percent} + '%'"></td>
+                            <td class="text-end" th:text="${f.allocatedKg} + ' kg'"></td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-success rounded-pill px-3"
+                                        th:attr="onclick=|showFarmerDetail('${f.supplierId}')|">
+                                    <i class="fas fa-user me-1"></i>View
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div th:if="${node.batchNumber == 'FROM-REMNANTS'}" class="p-4 bg-light rounded-3 border detailed-data">
+                <h5 class="fw-bold text-secondary mb-3"><i class="fas fa-history me-2"></i>Sourced from Past Blending Balance</h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="data-label">Original Blend Reference</div>
+                        <div class="data-value text-primary fs-4" th:text="${node.blendingRef ?: 'Unknown Blend'}"></div>
+                    </div>
+                    <div class="col-md-8 d-flex align-items-center">
+                        <p class="mb-0 text-muted">This portion was drawn from remnants of a previously processed blend, inheriting its prior QA certifications and tracking history.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="text-center mt-3 mb-0">
+        <button onclick="window.print()" class="btn btn-success rounded-pill px-5 py-3 fw-bold shadow-sm">
+            <i class="fas fa-print me-2"></i> Print Commercial Receipt
+        </button>
+    </div>
+
+</div>
+
+<!-- Lightbox overlay -->
+<div class="lightbox-overlay" id="imageLightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox(event)">&times;</button>
+    <img id="lightboxImg" src="" alt="Full size photo">
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    function openLightbox(url, event) {
+        if (event) event.stopPropagation();
+        document.getElementById('lightboxImg').src = url;
+        document.getElementById('imageLightbox').classList.add('active');
+    }
+
+    function closeLightbox(event) {
+        if (event) event.stopPropagation();
+        document.getElementById('imageLightbox').classList.remove('active');
+    }
+
+    function showFarmerDetail(supplierId) {
+        fetch(`/api/supplier/${supplierId}/detail`)
+            .then(res => res.json())
+            .then(data => {
+                const avatarHtml = data.photoUrl
+                    ? `<img src="${data.photoUrl}" class="farmer-avatar" onclick="openLightbox('${data.photoUrl}', event)">`
+                    : `<div class="farmer-avatar-placeholder"><i class="fas fa-user"></i></div>`;
+
+                const landPhotoHtml = data.landPhotoUrl
+                    ? `<div class="land-photo-card">                         <div class="label"><i class="fas fa-map-marked-alt me-1"></i>Land Photo</div>                         <img src="${data.landPhotoUrl}" onclick="openLightbox('${data.landPhotoUrl}', event)">                       </div>`
+                    : `<div class="land-photo-card">                         <div class="label"><i class="fas fa-map-marked-alt me-1"></i>Land Photo</div>                         <div class="land-photo-empty"><i class="fas fa-image mb-1 d-block" style="font-size:1.5rem;"></i>No land photo available</div>                       </div>`;
+
+                const hasLocation = data.latitude != null && data.longitude != null;
+                const mapsUrl = hasLocation ? `https://www.google.com/maps?q=${data.latitude},${data.longitude}` : null;
+                const mapHtml = hasLocation
+                    ? `<a href="${mapsUrl}" target="_blank" class="map-link-btn"><i class="fas fa-location-dot"></i> View Farm Location on Map</a>`
+                    : '';
+
+                Swal.fire({
+                    html: `                        <div class="farmer-profile-header">                            ${avatarHtml}                            <div class="farmer-name-title">${data.name || 'Unknown Farmer'}</div>                            <div class="farmer-id-badge">Farmer ID: ${data.supplierId}</div>                        </div>                        <div style="text-align:left;">                            ${landPhotoHtml}                            ${mapHtml}                        </div>                    `,
+                    width: 380,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Close',
+                    confirmButtonColor: '#6c757c'
+                });
+            })
+            .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Could not load farmer details.' }));
+    }
+
+    function showBatchContribution(batchId, lotLabel) {
+        fetch(`/api/production/${batchId}/contributions`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data || data.length === 0) {
+                    Swal.fire({ icon: 'info', title: `Farmer Contribution — ${lotLabel}`, text: 'No farmer weighing data found for this batch.' });
+                    return;
+                }
+
+                let rows = data.map(f => {
+                    // support both shaped results: {percent, allocatedKg} or {percent, weightKg}
+                    const percent = f.percent !== undefined ? f.percent : (f.percentPct !== undefined ? f.percentPct : '');
+                    const allocated = f.allocatedKg !== undefined ? f.allocatedKg : (f.weightKg !== undefined ? f.weightKg : '');
+                    const supplierId = f.supplierId !== undefined ? f.supplierId : (f.getSupplierId ? f.getSupplierId() : '');
+                    const supplierName = f.supplierName !== undefined ? f.supplierName : (f.getSupplierName ? f.getSupplierName() : '');
+                    return `<tr>
+                        <td style="text-align:left;">${supplierId}</td>
+                        <td style="text-align:left;">${supplierName}</td>
+                        <td style="text-align:right;">${percent !== '' ? Number(percent).toFixed(2) + '%' : '-'}</td>
+                        <td style="text-align:right;">${allocated !== '' ? Number(allocated).toFixed(2) + ' kg' : '-'}</td>
+                    </tr>`;
+                }).join('');
+
+                Swal.fire({
+                    title: `Farmer Contribution — ${lotLabel}`,
+                    html: `<div style="max-height: 350px; overflow-y:auto;">
+                        <table class="table table-sm table-striped" style="font-size: 0.85rem;">
+                            <thead><tr><th style="text-align:left;">Farmer ID</th><th style="text-align:left;">Name</th><th style="text-align:right;">% of Source</th><th style="text-align:right;">Allocated</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`,
+                    width: 520,
+                    confirmButtonColor: '#409176'
+                });
+            })
+            .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load farmer contribution data.' }));
+    }
+
+</script>
+
+</body>
+</html>

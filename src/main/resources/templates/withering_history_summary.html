@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Withering History | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --forest: #1b4332;
+            --leaf:   #26523c;
+            --sage:   #52b788;
+            --mist:   #d8f3dc;
+            --snow:   #f4f9f6;
+            --ink:    #1a2e23;
+            --slate:  #4a5568;
+            --border: #c3d9cc;
+            --amber:  #d97706;
+            --red:    #dc2626;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--snow);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            padding-bottom: 80px;
+        }
+
+        /* ── NAV ── */
+        .top-nav {
+            background: var(--forest);
+            color: white;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .top-nav .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.95rem; letter-spacing: 0.4px; }
+        .top-nav a { color: white; text-decoration: none; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
+
+        /* ── PAGE TITLE ── */
+        .page-header {
+            padding: 18px 16px 10px;
+        }
+        .page-header h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--forest);
+        }
+        .page-header p {
+            font-size: 0.78rem;
+            color: var(--slate);
+            margin-top: 3px;
+        }
+
+        /* ── SUMMARY STAT CARDS ── */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 0 16px 16px;
+        }
+        .stat-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+        }
+        .stat-card .stat-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--slate);
+            margin-bottom: 4px;
+        }
+        .stat-card .stat-value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--forest);
+            line-height: 1.1;
+        }
+        .stat-card .stat-sub {
+            font-size: 0.7rem;
+            color: var(--sage);
+            margin-top: 2px;
+        }
+        .stat-card.wide {
+            grid-column: span 2;
+        }
+        .stat-card.highlight {
+            background: var(--forest);
+            border-color: var(--forest);
+        }
+        .stat-card.highlight .stat-label { color: var(--mist); }
+        .stat-card.highlight .stat-value { color: white; }
+        .stat-card.highlight .stat-sub   { color: var(--sage); }
+
+        /* ── SECTION HEADER ── */
+        .section-header {
+            padding: 6px 16px 8px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--slate);
+        }
+
+        /* ── RECORD CARDS ── */
+        .record-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            margin: 0 16px 10px;
+            overflow: hidden;
+        }
+
+        .record-card-header {
+            background: var(--mist);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .batch-pill {
+            background: var(--forest);
+            color: white;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .date-chip {
+            font-size: 0.7rem;
+            color: var(--slate);
+            font-weight: 600;
+        }
+
+        .record-body {
+            padding: 12px 14px;
+        }
+
+        /* Two-col detail rows */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px 12px;
+            margin-bottom: 10px;
+        }
+
+        .detail-item .detail-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--slate);
+            margin-bottom: 1px;
+        }
+
+        .detail-item .detail-value {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        /* Moisture loss bar */
+        .moisture-bar-wrap {
+            margin-top: 8px;
+            background: #e9f5ee;
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        .moisture-bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--leaf);
+            margin-bottom: 5px;
+        }
+
+        .moisture-bar-track {
+            background: #c3d9cc;
+            border-radius: 4px;
+            height: 6px;
+            overflow: hidden;
+        }
+
+        .moisture-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: var(--leaf);
+            transition: width 0.4s ease;
+        }
+
+        .moisture-bar-fill.warn  { background: var(--amber); }
+        .moisture-bar-fill.alert { background: var(--red); }
+
+        /* Officer + labor row */
+        .meta-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: var(--slate);
+            flex-wrap: wrap;
+        }
+
+        .meta-badge {
+            background: var(--snow);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2px 9px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            text-align: center;
+            padding: 50px 30px;
+            color: var(--slate);
+        }
+        .empty-state i { font-size: 2.5rem; color: var(--border); display: block; margin-bottom: 12px; }
+        .empty-state p { font-size: 0.88rem; }
+
+        /* ── BOTTOM NAV ── */
+        .bottom-nav-bar {
+            position: fixed;
+            bottom: 0; left: 0;
+            width: 100%;
+            background: white;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 8px 0;
+            z-index: 2000;
+        }
+        .nav-tab-item { text-align: center; color: #64748b; text-decoration: none; font-size: 0.75rem; font-weight: 600; }
+        .nav-tab-item.active { color: var(--forest); }
+        .nav-tab-item i { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+
+        /* ── DURATION CHIP ── */
+        .duration-chip {
+            display: inline-block;
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 1px 8px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--forest);
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-nav">
+    <div class="brand">
+        <i class="bi bi-leaf-fill"></i>
+        LumiLeaf Withering
+    </div>
+    <a href="/logout"><i class="bi bi-power"></i> Logout</a>
+</div>
+
+<!-- ── PAGE HEADER ── -->
+<div class="page-header">
+    <h1><i class="bi bi-clock-history" style="font-size:1.1rem;"></i> Withering History</h1>
+    <p>All recorded withering cycles with moisture loss analysis</p>
+</div>
+
+<!-- ── AGGREGATE SUMMARY STATS ── -->
+<div th:if="${not #lists.isEmpty(witheringHistory)}">
+
+    <div class="summary-grid">
+
+        <div class="stat-card highlight">
+            <div class="stat-label">Total Batches</div>
+            <div class="stat-value" th:text="${#lists.size(witheringHistory)}">0</div>
+            <div class="stat-sub">recorded cycles</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Total Gate Weight</div>
+            <div class="stat-value">
+                <span th:text="${#numbers.formatDecimal(witheringHistory.stream().mapToDouble(w -> w.intakeWeight != null ? w.intakeWeight : 0).sum(), 1, 2)}">0.00</span>
+                <span style="font-size:0.7rem; font-weight:600; color:var(--slate)"> kg</span>
+            </div>
+            <div class="stat-sub">fresh leaf in</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Total Withered</div>
+            <div class="stat-value">
+                <span th:text="${#numbers.formatDecimal(witheringHistory.stream().mapToDouble(w -> w.witheredWeight != null ? w.witheredWeight : 0).sum(), 1, 2)}">0.00</span>
+                <span style="font-size:0.7rem; font-weight:600; color:var(--slate)"> kg</span>
+            </div>
+            <div class="stat-sub">leaf output</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Avg Moisture Loss</div>
+            <div class="stat-value">
+                <!--
+                    Thymeleaf can't do conditional avg inline cleanly, so we use a safe fallback:
+                    sum of moisture loss / count. The th:with scopes the intermediate values.
+                -->
+                <span th:with="
+                    totalIn=${witheringHistory.stream().mapToDouble(w -> w.intakeWeight != null ? w.intakeWeight : 0).sum()},
+                    totalOut=${witheringHistory.stream().mapToDouble(w -> w.witheredWeight != null ? w.witheredWeight : 0).sum()},
+                    avgPct=${totalIn > 0 ? #numbers.formatDecimal(((totalIn - totalOut) / totalIn) * 100, 1, 1) : '0.0'}"
+                      th:text="${avgPct} + '%'">
+                    0.0%
+                </span>
+            </div>
+            <div class="stat-sub">overall average</div>
+        </div>
+
+    </div>
+
+    <!-- ── INDIVIDUAL RECORD CARDS ── -->
+    <div class="section-header">Recent Records</div>
+
+    <div th:each="record : ${witheringHistory}">
+        <div class="record-card">
+
+            <div class="record-card-header">
+                <span class="batch-pill" th:text="${record.batchId}">BATCH</span>
+                <span class="date-chip" th:text="${record.date != null ? #temporals.format(record.date, 'dd MMM yyyy') : '—'}">—</span>
+            </div>
+
+            <div class="record-body">
+
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="bi bi-box-arrow-in-down"></i> Gate Weight</div>
+                        <div class="detail-value"
+                             th:text="${record.intakeWeight != null ? #numbers.formatDecimal(record.intakeWeight, 1, 2) + ' kg' : '—'}">—</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="bi bi-box-arrow-up"></i> Withered Weight</div>
+                        <div class="detail-value"
+                             th:text="${record.witheredWeight != null ? #numbers.formatDecimal(record.witheredWeight, 1, 2) + ' kg' : '—'}">—</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="bi bi-clock"></i> Start – End</div>
+                        <div class="detail-value"
+                             th:text="${(record.startTime != null ? record.startTime : '—') + ' – ' + (record.endTime != null ? record.endTime : '—')}">—</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label"><i class="bi bi-hourglass-split"></i> Duration</div>
+                        <div class="detail-value">
+                            <span class="duration-chip"
+                                  th:text="${record.timeTaken != null ? record.timeTaken : '—'}">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Moisture loss progress bar -->
+                <div th:if="${record.intakeWeight != null and record.intakeWeight > 0 and record.witheredWeight != null}"
+                     class="moisture-bar-wrap">
+                    <div class="moisture-bar-label">
+                        <span><i class="bi bi-droplet-half"></i> Moisture Loss</span>
+                        <span th:with="lossPct=${((record.intakeWeight - record.witheredWeight) / record.intakeWeight) * 100}"
+                              th:text="${#numbers.formatDecimal(record.intakeWeight - record.witheredWeight, 1, 2) + ' kg (' + #numbers.formatDecimal(lossPct, 1, 1) + '%)'}">
+                            — kg (—%)
+                        </span>
+                    </div>
+                    <div class="moisture-bar-track">
+                        <div class="moisture-bar-fill"
+                             th:with="pct=${((record.intakeWeight - record.witheredWeight) / record.intakeWeight) * 100}"
+                             th:classappend="${pct > 35 ? 'alert' : (pct > 25 ? 'warn' : '')}"
+                             th:style="'width:' + ${#numbers.formatDecimal(pct, 1, 1)} + '%'">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Officer + labor meta row -->
+                <div class="meta-row">
+                    <i class="bi bi-person-fill" style="color:var(--sage);"></i>
+                    <span class="meta-badge" th:text="${record.officerName != null ? record.officerName : '—'}">—</span>
+                    <span style="color:var(--border);">|</span>
+                    <i class="bi bi-people-fill" style="color:var(--sage);"></i>
+                    <span th:text="${record.labors != null ? record.labors : '—'}" style="font-size:0.72rem;">—</span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── EMPTY STATE ── -->
+<div th:if="${#lists.isEmpty(witheringHistory)}" class="empty-state">
+    <i class="bi bi-inbox"></i>
+    <p>No withering records found.</p>
+</div>
+
+<!-- ── BOTTOM NAV ── -->
+<div class="bottom-nav-bar">
+    <a href="/mobile/withering_dashboard" class="nav-tab-item">
+        <i class="bi bi-pencil-square"></i><span>Add Data</span>
+    </a>
+    <a href="/mobile/withering-summary" class="nav-tab-item active">
+        <i class="bi bi-list-task"></i><span>History</span>
+    </a>
+</div>
+
+</body>
+</html>

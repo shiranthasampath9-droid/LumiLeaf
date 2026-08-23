@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Withering Mobile | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #e4ebe7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding-bottom: 70px; }
+        .mobile-navbar { background-color: #26523c; color: white; padding: 14px 20px; font-weight: 600; letter-spacing: 0.5px; }
+        .form-wrapper { background-color: white; border: 2px solid #26523c; border-radius: 8px; padding: 20px; margin: 15px; }
+        .field-block { margin-bottom: 18px; }
+        .field-label { font-size: 0.75rem; font-weight: 800; color: #2c4236; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+        .form-control, .form-select { border: 1px solid #a3bdae; border-radius: 6px; padding: 10px 12px; color: #2d3748; }
+        .weight-disabled-input { background-color: #e2ebd5 !important; border: 1px solid #26523c !important; font-weight: bold; color: #1e4231 !important; }
+        .btn-submit-withering { background-color: #26523c; color: white; width: 100%; padding: 12px; font-weight: bold; border-radius: 6px; border: none; text-transform: uppercase; letter-spacing: 1px; margin-top: 10px; }
+
+        /* History View Styling */
+        .history-card { background: white; border-radius: 8px; border-left: 5px solid #26523c; padding: 12px; margin: 12px 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.04); }
+        .history-batch { font-weight: 700; color: #26523c; font-size: 1.05rem; }
+        .history-date { font-size: 0.8rem; color: #64748b; }
+        .history-meta { font-size: 0.85rem; color: #334155; margin-top: 4px; }
+
+        /* Bottom Nav Layout */
+        .bottom-nav-bar { position: fixed; bottom: 0; left: 0; width: 100%; background-color: white; border-top: 1px solid #cbd5e1; display: flex; justify-content: space-around; padding: 8px 0; z-index: 2000; }
+        .nav-tab-item { text-align: center; color: #64748b; text-decoration: none; font-size: 0.75rem; font-weight: 600; background: none; border: none; width: 100%; cursor: pointer; }
+        .nav-tab-item.active { color: #26523c; }
+        .nav-tab-item i { font-size: 1.3rem; display: block; margin-bottom: 2px; }
+        .processed-option { color: #a0aec0; font-style: italic; background-color: #edf2f7; }
+    </style>
+</head>
+<body>
+
+<div class="mobile-navbar d-flex justify-content-between align-items-center shadow-sm">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-leaf-fill"></i>
+        <span class="text-uppercase tracking-wider">LumiLeaf Withering</span>
+    </div>
+    <a href="/logout" class="text-white"><i class="bi bi-power"></i></a>
+</div>
+
+<div id="addContainer" class="tab-content-view">
+    <div class="form-wrapper shadow-sm">
+        <div th:if="${error}" class="alert alert-danger p-2 small mb-3 text-center" th:text="${error}"></div>
+        <div th:if="${param.success}" class="alert alert-success p-2 small mb-3 text-center">Withering record saved successfully!</div>
+
+        <form th:action="@{/mobile/withering/save}" method="post" id="witheringForm" onsubmit="return validateAndPrepareSubmit()">
+            <div class="field-block">
+                <label class="field-label">Responsible Officer</label>
+                <select class="form-select" name="officerName" id="officerSelect" onchange="toggleCustomOfficer(this)" required>
+                    <option value="" disabled selected>-- Select Officer --</option>
+                    <option th:each="off : ${officers}" th:value="${off}" th:text="${off}"></option>
+                    <option value="Other">Other (Type Manually)</option>
+                </select>
+            </div>
+
+            <div class="field-block" id="customOfficerBlock" style="display: none;">
+                <label class="field-label" style="color: #b7791f;"><i class="bi bi-pencil-square"></i> Type Officer Name</label>
+                <input type="text" class="form-control" id="customOfficerName" name="customOfficerName" placeholder="Enter custom officer name">
+            </div>
+
+            <!-- REPLACE THE SELECT TODAY'S BATCH ID BLOCK WITH THIS -->
+            <div class="field-block">
+                <label class="field-label">Select Today's Batches (Select Multiple)</label>
+                <div class="border rounded p-2" style="max-height: 180px; overflow-y: auto; background-color: #fff; border-color: #a3bdae !important;">
+                    <div th:each="b : ${batches}" class="form-check d-flex align-items-center gap-2 py-1 border-bottom" style="border-color: #f1f5f9 !important;">
+                        <input class="form-check-input batch-checkbox" type="checkbox" name="batchIds"
+                               th:id="'batch_' + ${b.batchId}" th:value="${b.batchId}"
+                               th:data-weight="${b.totalWeight}" th:disabled="${b.isProcessed}"
+                               onchange="updateIntakeWeight()" style="cursor: pointer; width: 1.2em; height: 1.2em;">
+                        <label class="form-check-label w-100 mb-0 text-start" th:for="'batch_' + ${b.batchId}"
+                               th:style="${b.isProcessed} ? 'color: #a0aec0; text-decoration: line-through; font-style: italic;' : 'color: #2d3748; cursor: pointer; font-size: 0.9rem;'"
+                               th:text="${b.isProcessed} ? 'Batch ' + ${b.batchId} + ' - (Processed)' : 'Batch ' + ${b.batchId}">
+                        </label>
+                    </div>
+                    <div th:if="${#lists.isEmpty(batches)}" class="text-muted small text-center py-2">
+                        No arrived batches found for today.
+                    </div>
+                </div>
+            </div>
+
+            <div class="field-block">
+                <label class="field-label">Production Week Number</label>
+                <input type="text" class="form-control" id="weekNumberInput" placeholder="e.g. 112" oninput="regenerateProductionIds()">
+            </div>
+
+            <div class="row">
+                <div class="col-12 col-sm-6 field-block">
+                    <label class="field-label">Production Batch Number</label>
+                    <input type="text" class="form-control" name="productionBatchNo" placeholder="Enter production batch #" required>
+                </div>
+                <div class="col-12 col-sm-6 field-block">
+                    <label class="field-label">Production Lot Number</label>
+                    <input type="text" class="form-control" name="productionLotNo" placeholder="Enter production lot #" required>
+                </div>
+            </div>
+
+            <div class="field-block">
+                <label class="field-label">Labor Team</label>
+                <input type="text" class="form-control" name="labors" placeholder="e.g. Kamal, Nimal Perera" required>
+            </div>
+
+            <div class="row">
+                <div class="col-12 col-sm-6 field-block">
+                    <label class="field-label">Start Time</label>
+                    <input type="time" class="form-control" name="startTime" required>
+                </div>
+                <div class="col-12 col-sm-6 field-block">
+                    <label class="field-label">End Time</label>
+                    <input type="time" class="form-control" name="endTime" required>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12 col-sm-6 field-block">
+                    <label class="field-label">Gate Weight (kg)</label>
+                    <input type="number" step="0.01" class="form-control weight-disabled-input"
+                           id="intakeWeightDisplay" name="intakeWeight"
+                           placeholder="Auto-filled from batch" readonly>
+                </div>
+                <div class="col-12 col-sm-6 field-block">
+                    <label class="field-label">Withered Weight (kg)</label>
+                    <input type="number" step="0.01" class="form-control" name="witheredWeight"
+                           id="witheredWeightInput" placeholder="Enter final weight"
+                           oninput="calcMoistureLoss()" required>
+                </div>
+            </div>
+
+            <div class="field-block" id="moistureLossBlock" style="display:none;">
+                <div style="background:#e2ebd5; border:1px solid #26523c; border-radius:6px; padding:10px 14px;
+                            display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.75rem; font-weight:800; color:#2c4236; text-transform:uppercase; letter-spacing:0.5px;">
+                        <i class="bi bi-droplet-half"></i> Moisture Loss
+                    </span>
+                    <span id="moistureLossValue" style="font-weight:700; color:#1e4231; font-size:1rem;"></span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-submit-withering text-uppercase" id="submitBtn">
+                Finish Withering
+            </button>
+        </form>
+    </div>
+</div>
+
+<div id="historyContainer" class="tab-content-view" style="display: none;">
+    <div class="p-2 text-center" th:if="${#lists.isEmpty(witheringHistory)}">
+        <p class="text-muted mt-4">No historical records available.</p>
+    </div>
+
+    <div class="history-card" th:each="h : ${witheringHistory}">
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="history-batch" th:text="'Batch ' + ${h.batchId}">Batch ID</span>
+            <span class="history-date" th:text="${h.date}">2026-06-09</span>
+        </div>
+        <div class="history-meta">
+            <div class="row mt-1">
+                <div class="col-6">
+                    <strong>In:</strong> <span th:text="${h.intakeWeight != null ? h.intakeWeight : '0.0'} + ' kg'"></span>
+                </div>
+                <div class="col-6">
+                    <strong>Out:</strong> <span th:text="${h.witheredWeight != null ? h.witheredWeight : '0.0'} + ' kg'"></span>
+                </div>
+            </div>
+            <div class="row mt-1" style="font-size: 0.8rem; color: #475569;">
+                <div class="col-6">
+                    <strong>Prod Batch:</strong> <span th:text="${h.productionBatchNo != null ? h.productionBatchNo : '-'}"></span>
+                </div>
+                <div class="col-6">
+                    <strong>Prod Lot:</strong> <span th:text="${h.productionLotNo != null ? h.productionLotNo : '-'}"></span>
+                </div>
+            </div>
+            <div class="row mt-1" style="font-size: 0.8rem; color: #475569;">
+                <div class="col-6">
+                    <i class="bi bi-clock"></i> <span th:text="${h.startTime} + ' - ' + ${h.endTime}"></span>
+                </div>
+                <div class="col-6">
+                    <i class="bi bi-person"></i> <span th:text="${h.officerName}"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="bottom-nav-bar">
+    <button id="tabBtnAdd" class="nav-tab-item active" onclick="switchView('add')">
+        <i class="bi bi-pencil-square"></i><span>Add Data</span>
+    </button>
+    <button id="tabBtnHistory" class="nav-tab-item" onclick="switchView('history')">
+        <i class="bi bi-list-task"></i><span>History</span>
+    </button>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        updateIntakeWeight();
+
+        // Prevent mouse wheel from changing number inputs
+        document.addEventListener('wheel', function () {
+            if (document.activeElement?.type === 'number') {
+                document.activeElement.blur();
+            }
+        }, { passive: true });
+    });
+
+    function validateAndPrepareSubmit() {
+        const checkedCount = document.querySelectorAll('.batch-checkbox:checked').length;
+
+        if (checkedCount === 0) {
+            alert("Please select at least one batch before submitting.");
+            return false;
+        }
+
+        const submitBtn = document.getElementById("submitBtn");
+        if (submitBtn.disabled) {
+            return false;
+        }
+
+        const witheredVal = document.getElementById("witheredWeightInput").value;
+
+        if (!witheredVal || parseFloat(witheredVal) <= 0) {
+            alert("Please enter the withered weight before submitting.");
+            return false;
+        }
+
+        return true;
+    }
+
+           function switchView(targetTab) {
+               var addBox = document.getElementById("addContainer");
+               var historyBox = document.getElementById("historyContainer");
+               var btnAdd = document.getElementById("tabBtnAdd");
+               var btnHistory = document.getElementById("tabBtnHistory");
+
+               if (targetTab === 'add') {
+                   addBox.style.display = "block";
+                   historyBox.style.display = "none";
+                   btnAdd.classList.add("active");
+                   btnHistory.classList.remove("active");
+               } else {
+                   addBox.style.display = "none";
+                   historyBox.style.display = "block";
+                   btnAdd.classList.remove("active");
+                   btnHistory.classList.add("active");
+               }
+           }
+
+          function updateIntakeWeight() {
+           var checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+           var totalWeight = 0;
+
+           checkboxes.forEach(function(cb) {
+               var weight = cb.getAttribute("data-weight");
+               totalWeight += weight ? parseFloat(weight) : 0;
+           });
+
+           var parsed = totalWeight.toFixed(2);
+           document.getElementById("intakeWeightDisplay").value = parsed;
+           calcMoistureLoss();
+           regenerateProductionIds();
+       }
+
+       function regenerateProductionIds() {
+           var checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+           var tokens = [];
+           checkboxes.forEach(function(cb) {
+               var raw = cb.value;
+               var token = raw.split(' (')[0].trim();
+               var parts = token.split('/');
+               if (parts.length === 3) {
+                   tokens.push({ raw: token, week: parts[0], section: parts[2].toUpperCase() });
+               }
+           });
+
+           var batchField = document.querySelector('input[name="productionBatchNo"]');
+           var lotField = document.querySelector('input[name="productionLotNo"]');
+           var weekField = document.getElementById('weekNumberInput');
+
+           if (tokens.length === 0) {
+               batchField.value = '';
+               lotField.value = '';
+               return;
+           }
+
+           batchField.value = tokens.map(function(t){ return t.raw; }).join('+');
+
+           var sections = [...new Set(tokens.map(function(t){ return t.section; }))];
+           var lotSection;
+           if (sections.includes('EST') && sections.includes('AM')) {
+               lotSection = 'EST';
+           } else if (sections.length === 1) {
+               lotSection = sections[0];
+           } else {
+               lotSection = sections.join('+');
+           }
+
+           var week = (weekField && weekField.value.trim()) ? weekField.value.trim() : tokens[0].week;
+           lotField.value = week + '/' + lotSection;
+       }
+
+           function calcMoistureLoss() {
+               var intake   = parseFloat(document.getElementById("intakeWeightDisplay").value) || 0;
+               var withered = parseFloat(document.getElementById("witheredWeightInput").value) || 0;
+               var block    = document.getElementById("moistureLossBlock");
+               var display  = document.getElementById("moistureLossValue");
+               var submitBtn = document.getElementById("submitBtn");
+
+               if (intake > 0 && withered > 0) {
+                   if (withered > intake) {
+                       display.innerHTML = "<span class='text-danger fw-bold'><i class='bi bi-exclamation-triangle-fill'></i> Error: Out weight exceeds In weight!</span>";
+                       block.style.display = "block";
+                       submitBtn.disabled = true;
+                       submitBtn.style.opacity = "0.5";
+                   } else {
+                       var loss    = intake - withered;
+                       var lossPct = ((loss / intake) * 100).toFixed(1);
+                       display.innerHTML = "<span class='text-success fw-bold'>" + loss.toFixed(2) + " kg (" + lossPct + "%)</span>";
+                       block.style.display = "block";
+                       submitBtn.disabled = false;
+                       submitBtn.style.opacity = "1";
+                   }
+               } else {
+                   block.style.display = "none";
+                   submitBtn.disabled = false;
+                   submitBtn.style.opacity = "1";
+               }
+           }
+
+           function toggleCustomOfficer(selectElement) {
+               var customBlock = document.getElementById("customOfficerBlock");
+               var inputField  = document.getElementById("customOfficerName");
+               if (selectElement.value === "Other") {
+                   customBlock.style.display = "block";
+                   inputField.required = true;
+                   inputField.focus();
+               } else {
+                   customBlock.style.display = "none";
+                   inputField.required = false;
+                   inputField.value = "";
+               }
+           }
+</script>
+</body>
+</html>

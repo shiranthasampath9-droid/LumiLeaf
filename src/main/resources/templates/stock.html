@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Stock Information</title>
+
+    <style>
+
+        body{
+            margin:0;
+            font-family: Arial, Helvetica, sans-serif;
+            background-color:#f5f7fa;
+        }
+
+        .container{
+            padding:30px;
+        }
+
+        .title{
+            font-size:26px;
+            font-weight:bold;
+            margin-bottom:20px;
+        }
+
+        .btn-group{
+            margin-bottom:20px;
+        }
+
+        .btn{
+            padding:10px 20px;
+            border:none;
+            border-radius:5px;
+            cursor:pointer;
+            margin-right:10px;
+            font-weight:bold;
+        }
+
+        .insert{
+            background-color:#28a745;
+            color:white;
+        }
+
+        .update{
+            background-color:#007bff;
+            color:white;
+        }
+
+        .delete{
+            background-color:#dc3545;
+            color:white;
+        }
+
+        table{
+            width:100%;
+            border-collapse:collapse;
+            background:white;
+        }
+
+        th,td{
+            padding:12px;
+            border:1px solid #ddd;
+            text-align:center;
+        }
+
+        th{
+            background-color:#e9ecef;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="title">Stock Information</div>
+
+    <div class="btn-group">
+        <button class="btn insert">Insert</button>
+        <button class="btn update">Update</button>
+        <button class="btn delete">Delete</button>
+    </div>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Stock ID</th>
+            <th>Tea Type</th>
+            <th>Quantity</th>
+            <th>Grade</th>
+            <th>Date</th>
+        </tr>
+        </thead>
+
+        <tbody>
+        <tr>
+            <td>001</td>
+            <td>Black Tea</td>
+            <td>250 Kg</td>
+            <td>BOP</td>
+            <td>2026-02-21</td>
+        </tr>
+
+        <tr>
+            <td>002</td>
+            <td>Green Tea</td>
+            <td>180 Kg</td>
+            <td>OP</td>
+            <td>2026-02-21</td>
+        </tr>
+
+        <tr>
+            <td>003</td>
+            <td>White Tea</td>
+            <td>100 Kg</td>
+            <td>FP</td>
+            <td>2026-02-21</td>
+        </tr>
+        </tbody>
+    </table>
+
+</div>
+
+</body>
+</html>

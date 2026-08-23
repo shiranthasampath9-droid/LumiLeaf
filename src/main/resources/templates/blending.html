@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Blending Management | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root { --primary-green: #409176; --soft-bg: #f4f7f6; }
+        body { background-color: var(--soft-bg); font-family: 'Inter', sans-serif; }
+        .navbar-custom { background: var(--primary-green); color: white; padding: 1rem 2rem; margin-bottom: 2rem; }
+        .table-card { border-radius: 15px; border: none; background: white; overflow: hidden; }
+        .badge-approved { background-color: #e8f5e9; color: #2e7d32; padding: 0.5em 1em; border-radius: 50px; }
+        .badge-pending { background-color: #fff3e0; color: #e65100; padding: 0.5em 1em; border-radius: 50px; }
+        .btn-qr { background-color: #212529; color: white; border-radius: 50px; font-size: 0.85rem; }
+        .btn-qr:hover { background-color: #000; color: white; }
+        .form-label { margin-bottom: 0.2rem; }
+
+        .search-container { position: relative; width: 300px; }
+        .search-container i.fa-search { position: absolute; left: 15px; top: 11px; color: #b2bec3; }
+        .btn-clear-search { position: absolute; right: 10px; top: 7px; border: none; background: transparent; color: #d32f2f; display: none; cursor: pointer; }
+
+        .recipe-progress-box { background: #f8f9fa; border-left: 4px solid var(--primary-green); }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom shadow-sm">
+    <div class="container-fluid d-flex justify-content-between">
+        <span class="fw-bold"><i class="fas fa-blender me-2"></i> LumiLeaf Blending Center</span>
+        <span class="small" th:text="${#temporals.format(#temporals.createNow(), 'dd MMM yyyy')}"></span>
+    </div>
+</nav>
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <a th:href="@{/qa_dashboard}" class="btn btn-outline-secondary rounded-pill me-2">
+                <i class="fas fa-arrow-left me-1"></i> Dashboard
+            </a>
+            <h2 class="d-inline-block align-middle mb-0 ms-2 fw-bold text-dark">Blending Inventory</h2>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <div class="search-container">
+                <i class="fas fa-search"></i>
+                <input type="text" id="blendSearch" class="form-control ps-5 border-0 shadow-sm" placeholder="Search Invoice or Buyer..." style="border-radius: 10px; height: 38px;">
+                <button id="clearBlendSearch" class="btn-clear-search"><i class="fas fa-times-circle"></i></button>
+            </div>
+
+            <button class="btn btn-success rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#blendModal" onclick="clearBlendContext()">
+                <i class="fas fa-plus me-2"></i> Add New Blend
+            </button>
+        </div>
+    </div>
+
+    <div th:if="${error}" class="d-none spring-error" th:text="${error}"></div>
+    <div th:if="${success}" class="d-none spring-success" th:text="${success}"></div>
+
+    <div id="noBlendsMsg" th:if="${groupedBlends == null or groupedBlends.isEmpty()}" class="text-center p-5 text-muted">
+        <h4>No blending records found.</h4>
+    </div>
+
+    <div id="blendCardContainer">
+        <div th:each="entry : ${groupedBlends}" class="card blend-card shadow-sm border-0 mb-4" style="border-radius: 15px; overflow: hidden;">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom">
+                <div>
+                    <h5 class="mb-0 fw-bold text-primary invoice-number">
+                        <i class="fas fa-file-invoice me-2"></i><span th:text="${entry.key}">INV-NUM</span>
+                    </h5>
+
+                    <div class="text-muted small mt-1 buyer-info">
+                        <strong>Buyer:</strong> <span>[[${entry.value[0].buyerInfo}]]</span> |
+                        <strong>Blending Number:</strong> <span class="prod-name">[[${entry.value[0].productName ?: 'N/A'}]]</span> |
+                        <strong>Finished Good Number:</strong> <span>[[${entry.value[0].finishedGoodNumber ?: 'N/A'}]]</span>
+                    </div>
+                </div>
+
+                <a th:href="@{/trace/invoice/{invoiceNumber}(invoiceNumber=${entry.key})}"
+                   target="_blank"
+                   class="btn btn-sm btn-qr rounded-pill px-3 shadow-sm"
+                   title="Open Master Trace & QR">
+                    <i class="fas fa-qrcode me-1"></i> Master QR
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light" style="font-size: 13px;">
+                    <tr>
+                        <th class="ps-4">Grade</th>
+                        <th>Source (Batch / Remnant)</th>
+                        <th>Qty (kg)</th>
+                        <th>Line Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="b : ${entry.value}">
+                        <td class="ps-4"><span class="badge bg-secondary grade-badge" th:text="${b.grade}"></span></td>
+                        <td class="small">
+                            <span th:text="${b.batchNumber != null ? b.batchNumber.split('\\s*\\+\\s*')[0] : ''}" class="fw-bold text-dark"></span>
+                            <br th:if="${b.batchNumber != null and b.batchNumber != ''}">
+                            <span th:if="${b.batchNumber != null and b.batchNumber != ''}" class="badge bg-info bg-opacity-10 text-info border border-info mt-1" style="cursor:pointer; font-size: 0.7rem;" th:attr="onclick=|showBlendLineContribution(${b.id}, '${b.batchNumber != null ? b.batchNumber.split('\\s*\\+\\s*')[0] : ''}')|"> <i class="fas fa-users me-1"></i>Farmer Contribution </span>
+                            <div th:if="${b.blendingNumber}" class="text-muted" style="font-size: 0.75rem;">
+                                Ref: <span th:text="${b.blendingNumber}"></span>
+                            </div>
+                        </td>
+                        <td class="fw-bold qty-cell" th:text="${b.quantity} + ' kg'"></td>
+                        <td>
+                            <span th:if="${b.status == 'APPROVED'}" class="badge bg-success bg-opacity-10 text-success border border-success">
+                                <i class="fas fa-check-circle me-1"></i> APPROVED
+                            </span>
+                            <span th:unless="${b.status == 'APPROVED'}" class="badge bg-warning bg-opacity-10 text-warning border border-warning">
+                                <i class="fas fa-clock me-1"></i> PENDING
+                            </span>
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center gap-2">
+                                <form th:action="@{/blending/updateStatus}" method="post" class="d-inline">
+                                    <input type="hidden" name="id" th:value="${b.id}"/>
+                                    <input type="hidden" name="status" th:value="${b.status == 'APPROVED' ? 'PENDING' : 'APPROVED'}"/>
+                                    <button type="submit"
+                                            th:classappend="${b.status == 'APPROVED'} ? 'btn-outline-warning' : 'btn-success'"
+                                            class="btn btn-sm rounded-circle"
+                                            th:title="${b.status == 'APPROVED' ? 'Revert to Pending' : 'Approve & Deduct Stock'}">
+                                        <i th:class="${b.status == 'APPROVED'} ? 'fas fa-undo' : 'fas fa-check'"></i>
+                                    </button>
+                                </form>
+                                <a th:href="@{/blending/edit/{id}(id=${b.id})}" class="btn btn-sm btn-outline-primary rounded-circle"><i class="fas fa-edit"></i></a>
+                                <a th:href="@{/blending/dispatch-note/{id}(id=${b.id})}" target="_blank" class="btn btn-sm btn-outline-dark rounded-circle" title="Print Dispatch Note">
+
+                                    <i class="fas fa-tag"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="blendModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="modal-title fw-bold text-success"><i class="fas fa-leaf me-2"></i>Blending Entry</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <form th:action="@{/blending/save}" th:object="${newBlend}" method="post">
+                <div class="px-4 mt-2">
+                    <div class="card bg-light border-0 p-3 rounded-3 shadow-sm">
+                        <h6 class="fw-bold text-primary mb-3"><i class="fas fa-flask me-2"></i>Recipe Tracking Assistant</h6>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-bold text-muted">Blending Number</label>
+                                <input type="text" th:field="*{productName}" id="recipeSelect" class="form-control rounded-3 border-0 shadow-sm" placeholder="e.g. BLEND-45">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-muted">Target Total Weight (kg)</label>
+                                <input type="number" th:field="*{targetTotalWeight}" id="recipeTargetWeight" class="form-control rounded-3 border-0 shadow-sm" placeholder="e.g. 150" onkeyup="checkRecipeStock()">
+                            </div>
+                            <div class="col-md-3">
+                            </div>
+                        </div>
+                        <div id="recipeResults" class="mt-3" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <div class="modal-body px-4 mt-2">
+                    <input type="hidden" th:field="*{id}" id="id">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold d-flex justify-content-between w-100">
+                                Invoice Number
+                                <a href="#" class="text-success text-decoration-none small" id="toggleInvoiceMode" onclick="toggleInvoiceInput(event)" th:unless="${lockInvoice}">
+                                    <i class="fas fa-plus"></i> Add New
+                                </a>
+                            </label>
+
+                            <select id="invoiceSelect" class="form-select rounded-3 border-0 shadow-sm" onchange="fillInvoiceData()" th:disabled="${lockInvoice}" required>
+                                <option value="" disabled selected>Select an existing invoice...</option>
+                            </select>
+
+                            <input type="text" th:field="*{invoiceNumber}" id="invoiceNumber" class="form-control rounded-3 d-none border-0 shadow-sm" th:readonly="${lockInvoice}" placeholder="Type new invoice # e.g. INV-100">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Buyer Information</label>
+                            <input type="text" th:field="*{buyerInfo}" id="buyerInfo" class="form-control rounded-3 border-0 shadow-sm"
+                                   placeholder="e.g. A.B.C Perera" required
+                                   pattern="^(?!\.)(?!.*\.\.)[A-Za-z\s.]+$" title="Only letters, spaces, and dots are allowed."
+                                   oninput="this.value = this.value.replace(/[^A-Za-z\s.]/g, '').replace(/\.{2,}/g, '.').replace(/^\./, '');">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Grade</label>
+                            <select th:field="*{grade}" id="gradeSelect" class="form-select rounded-3 border-0 shadow-sm" onchange="refreshData()" required>
+                                <option value="" disabled selected>Select Grade</option>
+                                <option value="OP1">OP1</option>
+                                <option value="OPA">OPA</option>
+                                <option value="BOP1">BOP1</option>
+                                <option value="PEKOE">PEKOE</option>
+                                <option value="BOP">BOP</option>
+                                <option value="BOPF">BOPF</option>
+                                <option value="EB">EB</option>
+                                <option value="FFSP">FFSP</option>
+                                <option value="FFEXS">FFEXS</option>
+                                <option value="DUST">DUST</option>
+                                <option value="BM">BM</option>
+                                <option value="BP">BP</option>
+                                <option value="REFUSE">REFUSE</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Pre Blended</label>
+                            <!-- AFTER -->
+                            <select th:field="*{blendingNumber}" th:attr="data-saved-value=*{blendingNumber}" id="blendingNumberDropdown" class="form-select rounded-3 border-0 shadow-sm" onchange="updateMaxQuantity(this)">
+                                <option value="">-- No Balance Selected --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Source Batch (Daily Prod)</label>
+                            <!-- AFTER -->
+                            <select th:field="*{batchNumber}" th:attr="data-saved-value=*{batchNumber}" id="batchNumberDropdown" class="form-select rounded-3 border-0 shadow-sm" onchange="updateMaxQuantity(this)">
+                                <option value="FROM-REMNANTS">FROM-REMNANTS (General Stock)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold d-flex justify-content-between">
+                                Quantity (kg)
+                                <span id="maxQtyLabel" class="text-danger" style="font-size: 0.7rem; display:none;"></span>
+                            </label>
+                            <input type="number" step="0.1" th:field="*{quantity}" id="quantity" class="form-control rounded-3 border-0 shadow-sm" placeholder="0.0" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Finished Good #</label>
+                            <input type="text" th:field="*{finishedGoodNumber}" id="finishedGoodNumber" class="form-control rounded-3 border-0 shadow-sm" th:readonly="${lockInvoice}" placeholder="e.g. FG-100">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">Action Status</label>
+                            <select th:field="*{status}" class="form-select rounded-3 border-0 shadow-sm">
+                                <option value="PENDING">PENDING (Draft)</option>
+                                <option value="APPROVED">APPROVED (Deduct Stock)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4 d-flex justify-content-between mt-3">
+                    <button type="button" class="btn btn-light px-4 rounded-pill shadow-sm" data-bs-dismiss="modal">Cancel</button>
+                    <div>
+                        <button type="button" class="btn btn-outline-success px-4 rounded-pill fw-bold me-2 shadow-sm" onclick="saveContextAndSubmit()">Save & Next Grade</button>
+                        <button type="button" class="btn btn-success px-5 rounded-pill fw-bold shadow-sm" onclick="saveAndClose()">Finish & Close Invoice</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    let currentMaxStock = 0;
+    let isNewInvoiceMode = false;
+
+    // --- 1. INTELLIGENT DATA EXTRACTION ---
+    const invoiceData = {};
+    document.querySelectorAll('.blend-card').forEach(card => {
+        const inv = card.querySelector('.invoice-number span').innerText.trim();
+        const spans = card.querySelectorAll('.buyer-info span');
+
+        if(spans.length >= 3) {
+            const buyer = spans[0].innerText.trim();
+            const product = spans[1].innerText.trim();
+            const fg = spans[2].innerText.trim();
+
+            const gradesAdded = {};
+            card.querySelectorAll('tbody tr').forEach(tr => {
+                const gradeBadge = tr.querySelector('.grade-badge');
+                const qtyCell = tr.querySelector('.qty-cell');
+                if (gradeBadge && qtyCell) {
+                    const grade = gradeBadge.innerText.trim();
+                    const qty = parseFloat(qtyCell.innerText.replace('kg', '').trim()) || 0;
+                    gradesAdded[grade] = (gradesAdded[grade] || 0) + qty;
+                }
+            });
+
+            invoiceData[inv] = { buyer, product, fg, gradesAdded };
+        }
+    });
+
+    const invSelect = document.getElementById('invoiceSelect');
+    if (invSelect) {
+        for (const inv in invoiceData) {
+            const option = document.createElement('option');
+            option.value = inv;
+            option.text = inv;
+            invSelect.appendChild(option);
+        }
+    }
+
+    // --- 2. AUTO-FILL LOGIC ---
+    // AFTER
+    // --- 2. AUTO-FILL LOGIC ---
+    function fillInvoiceData() {
+        const selected = invSelect.value;
+        document.getElementById('invoiceNumber').value = selected;
+
+        if (invoiceData[selected]) {
+            document.getElementById('buyerInfo').value = invoiceData[selected].buyer;
+
+            const fgVal = invoiceData[selected].fg;
+            document.getElementById('finishedGoodNumber').value = (fgVal && fgVal !== 'N/A') ? fgVal : '';
+
+            const prodVal = invoiceData[selected].product;
+            document.getElementById('recipeSelect').value = prodVal || '';
+
+         // targetTotalWeight is prefilled by Thymeleaf only when editing an existing row
+            // (id is set). On "Save & Next Grade", id is cleared to create a new row, so
+            // we restore targetTotalWeight from sessionStorage instead (see saveContextAndSubmit).
+
+            checkRecipeStock();
+        }
+    }
+    function showBlendLineContribution(blendingId, sourceLabel) {
+    fetch(`/api/blending/${blendingId}/contributions`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.applicable) {
+                Swal.fire({ icon: 'info', title: `Source: ${sourceLabel}`, text: data.reason });
+                return;
+            }
+            if (!data.contributions || data.contributions.length === 0) {
+                Swal.fire({ icon: 'info', title: `Farmer Contribution — ${sourceLabel}`, text: 'No farmer weighing data found for this source.' });
+                return;
+            }
+            let rows = data.contributions.map(f =>
+                `<tr>
+                    <td style="text-align:left;">${f.supplierId}</td>
+                    <td style="text-align:left;">${f.supplierName}</td>
+                    <td style="text-align:right;">${f.percent.toFixed(2)}%</td>
+                    <td style="text-align:right;">${f.allocatedKg.toFixed(2)} kg</td>
+                </tr>`
+            ).join('');
+            Swal.fire({
+                title: `Farmer Contribution — ${sourceLabel}`,
+                html: `<div style="font-size:0.8em;color:#666;margin-bottom:8px;text-align:left;">
+                        Of ${data.lineQuantity.toFixed(2)}kg drawn from this LOT, allocated by each farmer's overall share of the LOT:
+                       </div>
+                       <div style="max-height: 350px; overflow-y:auto;">
+                        <table class="table table-sm table-striped" style="font-size: 0.85rem;">
+                            <thead><tr><th style="text-align:left;">Farmer ID</th><th style="text-align:left;">Name</th><th style="text-align:right;">% of LOT</th><th style="text-align:right;">Allocated</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                       </div>`,
+                width: 550,
+                confirmButtonColor: '#409176'
+            });
+        })
+        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load farmer contribution data.' }));
+}
+
+    // --- 3. LIVE RECIPE TRACKING ---
+   function checkRecipeStock() {
+        const selected = invSelect.value;
+        const resultsBox = document.getElementById('recipeResults');
+        const targetInput = document.getElementById('recipeTargetWeight');
+        const target = parseFloat(targetInput.value) || 0;
+
+        if (!selected || !invoiceData[selected] || target <= 0) {
+            resultsBox.style.display = 'none';
+            return;
+        }
+
+        const gradesAdded = invoiceData[selected].gradesAdded || {};
+        const totalAdded = Object.values(gradesAdded).reduce((sum, qty) => sum + qty, 0);
+        const isOverTarget = totalAdded > target;
+        const remaining = Math.max(0, target - totalAdded);
+        const excess = Math.max(0, totalAdded - target);
+
+        const gradesList = Object.entries(gradesAdded)
+            .map(([grade, qty]) => `${grade} ${qty.toFixed(1)}kg`)
+            .join(', ');
+
+        // FIX (Issue: show excess): previously remaining was clamped to 0 with no
+        // indication that the target had actually been exceeded. Now shows "Over
+        // target by X.Xkg" in red when totalAdded > target, instead of a misleading
+        // "Remaining target: 0.0kg".
+        const progressLine = isOverTarget
+            ? `<div class="small mt-1 text-danger fw-bold">Over target by ${excess.toFixed(1)}kg (added ${totalAdded.toFixed(1)}kg of ${target.toFixed(1)}kg)</div>`
+            : `<div class="small mt-1"><strong>Remaining target:</strong> ${remaining.toFixed(1)}kg of ${target.toFixed(1)}kg</div>`;
+
+        resultsBox.className = 'mt-3 p-3 rounded-3 recipe-progress-box';
+        resultsBox.innerHTML = `
+            <div class="small"><strong>Added so far:</strong> ${gradesList || 'None yet'}</div>
+            ${progressLine}
+        `;
+        resultsBox.style.display = 'block';
+    }
+
+    // --- SAVING LOGIC ---
+  function saveContextAndSubmit() {
+     document.querySelector('select[name="status"]').value = "PENDING";
+     const form = document.querySelector('#blendModal form');
+     if (!form.checkValidity()) { form.reportValidity(); return; }
+     if (!validateInvoiceAndBuyer()) return;
+     if (!validateStockQuantity()) return;
+     if (!validateInvoiceNumberPresent()) return;
+
+     const inv = document.getElementById('invoiceNumber').value;
+     const buyer = document.getElementById('buyerInfo').value;
+     const fg = document.getElementById('finishedGoodNumber').value;
+     const prod = document.getElementById('recipeSelect').value;
+     const targetWeight = document.getElementById('recipeTargetWeight').value;
+
+     sessionStorage.setItem('keepModalOpen', 'true');
+     sessionStorage.setItem('lastInvoice', inv);
+     sessionStorage.setItem('lastBuyer', buyer);
+     sessionStorage.setItem('lastFG', fg);
+     sessionStorage.setItem('lastProduct', prod);
+     sessionStorage.setItem('lastTargetWeight', targetWeight);
+
+     form.submit();
+ }
+
+function saveAndClose() {
+    document.querySelector('select[name="status"]').value = "APPROVED";
+    const form = document.querySelector('#blendModal form');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    if (!validateInvoiceAndBuyer()) return;
+    if (!validateStockQuantity()) return;
+    if (!validateInvoiceNumberPresent()) return;
+
+    sessionStorage.removeItem('keepModalOpen');
+    sessionStorage.removeItem('lastInvoice');
+    sessionStorage.removeItem('lastBuyer');
+    sessionStorage.removeItem('lastFG');
+    sessionStorage.removeItem('lastProduct');
+    sessionStorage.removeItem('lastTargetWeight');
+
+    form.submit();
+}
+
+    // --- UTILITIES & EXISTING FUNCTIONS ---
+
+    function updateMaxQuantity(selectElement) {
+        const qtyInput = document.getElementById('quantity');
+        const maxLabel = document.getElementById('maxQtyLabel');
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+
+        if(selectedOption.value === "FROM-REMNANTS" || selectedOption.value === "") {
+            currentMaxStock = 0;
+            maxLabel.style.display = 'none';
+            return;
+        }
+
+        currentMaxStock = parseFloat(selectedOption.getAttribute('data-max')) || 0;
+        maxLabel.innerText = `Max: ${currentMaxStock}kg`;
+        maxLabel.style.display = 'block';
+    }
+
+    function validateStockQuantity() {
+        const qtyInput = parseFloat(document.getElementById('quantity').value) || 0;
+        const grade = document.getElementById('gradeSelect').value;
+        const batchDropdown = document.getElementById('batchNumberDropdown').value;
+        const remnantDropdown = document.getElementById('blendingNumberDropdown').value;
+
+        if (qtyInput <= 0) {
+            Swal.fire({ icon: 'error', title: 'Invalid Quantity', text: 'You must enter a blending quantity greater than 0kg.', confirmButtonColor: '#409176' });
+            return false;
+        }
+        if (currentMaxStock > 0 && qtyInput > currentMaxStock) {
+            Swal.fire({ icon: 'error', title: 'Insufficient Stock', text: `You are trying to blend ${qtyInput}kg of ${grade}, but there is only ${currentMaxStock}kg available in that batch!`, confirmButtonColor: '#d32f2f' });
+            return false;
+        }
+        if (batchDropdown === "FROM-REMNANTS" && remnantDropdown === "") {
+            Swal.fire({ icon: 'warning', title: 'Source Missing', text: 'You must select either a Source Batch or a Blending Number (Remnant) to pull stock from.', confirmButtonColor: '#409176' });
+            return false;
+        }
+        return true;
+    }
+
+    const invInput = document.getElementById('invoiceNumber');
+    const toggleBtn = document.getElementById('toggleInvoiceMode');
+
+    // THE FIX: Modified this to leave the recipe and results alone!
+    function toggleInvoiceInput(e) {
+        e.preventDefault();
+        isNewInvoiceMode = !isNewInvoiceMode;
+
+        if (isNewInvoiceMode) {
+            invSelect.classList.add('d-none');
+            invSelect.removeAttribute('required');
+            invInput.classList.remove('d-none');
+            invInput.setAttribute('required', 'true');
+            invInput.value = '';
+            document.getElementById('buyerInfo').value = '';
+            document.getElementById('finishedGoodNumber').value = '';
+
+            toggleBtn.innerHTML = '<i class="fas fa-list"></i> Select Existing';
+            toggleBtn.className = 'text-primary text-decoration-none small';
+        } else {
+            invInput.classList.add('d-none');
+            invInput.removeAttribute('required');
+            invInput.value = '';
+            invSelect.classList.remove('d-none');
+            invSelect.setAttribute('required', 'true');
+            invSelect.value = '';
+            document.getElementById('buyerInfo').value = '';
+            document.getElementById('finishedGoodNumber').value = '';
+
+            toggleBtn.innerHTML = '<i class="fas fa-plus"></i> Add New';
+            toggleBtn.className = 'text-success text-decoration-none small';
+        }
+    }
+
+function validateInvoiceAndBuyer() {
+    const inv = document.getElementById('invoiceNumber') ? document.getElementById('invoiceNumber').value.trim() : '';
+    const buyer = document.getElementById('buyerInfo') ? document.getElementById('buyerInfo').value.trim() : '';
+    const nameRegex = /^(?!\.)(?!.*\.\.)[A-Za-z\s.]+$/;
+
+    if (buyer && !nameRegex.test(buyer)) {
+        Swal.fire({ icon: 'error', title: 'Invalid Buyer Name', text: 'Buyer name can only contain letters, spaces, and dots.', confirmButtonColor: '#409176' });
+        return false;
+    }
+
+    if (inv && buyer && invoiceData[inv]) {
+        const existingBuyer = invoiceData[inv].buyer;
+        if (existingBuyer.toLowerCase() !== buyer.toLowerCase()) {
+            Swal.fire({ icon: 'error', title: 'Invoice Conflict', text: `Invoice ${inv} is already assigned to "${existingBuyer}".`, confirmButtonColor: '#2e7d32' });
+            return false;
+        }
+    }
+    return true;
+}
+
+// FIX (Bug B): the hidden #invoiceNumber field (the one actually submitted to the
+// server) is only populated via fillInvoiceData(), triggered by the visible
+// #invoiceSelect dropdown's change event. If the dropdown's value doesn't change
+// (e.g. it was left on a stale selection from a prior edit), no change event fires,
+// fillInvoiceData() never runs, and the form silently submits with a blank invoice
+// number — creating an orphaned row with no invoice. This is a last-line guard
+// catching that case regardless of how it happens.
+function validateInvoiceNumberPresent() {
+    const inv = document.getElementById('invoiceNumber') ? document.getElementById('invoiceNumber').value.trim() : '';
+    if (!inv) {
+        Swal.fire({ icon: 'error', title: 'Invoice Number Required', text: 'No invoice number is set. Please select an existing invoice or add a new one before saving.', confirmButtonColor: '#d32f2f' });
+        return false;
+    }
+    return true;
+}
+
+    function clearBlendContext() {
+    sessionStorage.removeItem('keepModalOpen');
+    sessionStorage.removeItem('lastInvoice');
+    sessionStorage.removeItem('lastBuyer');
+    sessionStorage.removeItem('lastFG');
+    sessionStorage.removeItem('lastProduct');
+
+    currentMaxStock = 0;
+    document.getElementById('maxQtyLabel').style.display = 'none';
+
+    if(document.getElementById('invoiceNumber')) document.getElementById('invoiceNumber').value = '';
+    if(invSelect) invSelect.value = '';
+    if(document.getElementById('buyerInfo')) document.getElementById('buyerInfo').value = '';
+    if(document.getElementById('finishedGoodNumber')) document.getElementById('finishedGoodNumber').value = '';
+    if(document.getElementById('quantity')) document.getElementById('quantity').value = '';
+    if(document.getElementById('id')) document.getElementById('id').value = '';
+
+    // Ensure this truly clears when creating a completely new blend
+    document.getElementById('recipeSelect').value = '';
+    document.getElementById('recipeTargetWeight').value = '';
+    document.getElementById('recipeResults').style.display = 'none';
+
+    const gradeSel = document.getElementById('gradeSelect');
+    if(gradeSel) { gradeSel.value = ''; refreshData(); }
+}
+
+  function refreshData() {
+    const gradeSel = document.getElementById('gradeSelect');
+    if (!gradeSel || !gradeSel.value) return;
+
+    const grade = gradeSel.value;
+
+    fetch(`/blending/data/${grade}?v=${Date.now()}`)
+        .then(res => res.json())
+        .then(data => {
+            // ✅ FIX #4B: Populate Blending Number (Remnants) dropdown
+            const bnd = document.getElementById('blendingNumberDropdown');
+            if (bnd) {
+                bnd.innerHTML = '<option value="">-- No Balance Selected --</option>';
+                if (data.remnantBalances && Object.keys(data.remnantBalances).length > 0) {
+                    Object.entries(data.remnantBalances).forEach(([id, qty]) => {
+                        bnd.innerHTML += `<option value="${id}" data-max="${qty}" title="Remnant ${id} has ${qty}kg of ${grade}">
+                            ${id} (${qty.toFixed(1)}kg of ${grade})
+                        </option>`;
+                    });
+                }
+                bnd.disabled = false;
+            }
+
+            // ✅ FIX #4B: Populate Source Batch dropdown - ONLY with batches that have this grade
+            const btd = document.getElementById('batchNumberDropdown');
+            if (btd) {
+                // Check if there are any batches with this grade
+                const hasBatches = data.batchStock && Object.keys(data.batchStock).length > 0;
+
+                if (hasBatches) {
+                    // Show batches with grade quantity
+                    btd.innerHTML = '<option value="FROM-REMNANTS" data-max="0">FROM-REMNANTS (General Stock)</option>';
+                    Object.entries(data.batchStock).forEach(([lot, qty]) => {
+    const displayLot = (lot || '').split(/\s*\+\s*/)[0] || lot;
+    btd.innerHTML += `<option value="${lot}" data-max="${qty}" title="Batch ${lot} has ${qty.toFixed(1)}kg of ${grade}">
+        ${displayLot} (${qty.toFixed(1)}kg of ${grade})
+    </option>`;
+});
+                    btd.disabled = false;
+                    btd.style.opacity = '1';
+                    btd.style.pointerEvents = 'auto';
+                } else {
+                    // No batches available - disable and show message
+                    btd.innerHTML = `<option disabled selected>-- No batches with ${grade} in stock --</option>`;
+                    btd.disabled = true;
+                    btd.style.opacity = '0.5';
+                    btd.style.pointerEvents = 'none';
+
+                    // Show warning
+                    currentMaxStock = 0;
+                    document.getElementById('maxQtyLabel').style.display = 'none';
+                }
+            }
+
+            // Reset remnant selection if batch is selected
+        // AFTER
+            // Reset remnant selection if batch is selected
+            if (bnd && btd) {
+                btd.addEventListener('change', function() {
+                    if (this.value !== "FROM-REMNANTS") {
+                        bnd.value = "";
+                        updateMaxQuantity(this);
+                    }
+                }, { once: true });
+
+                bnd.addEventListener('change', function() {
+                    if (this.value !== "") {
+                        btd.value = "FROM-REMNANTS";
+                        updateMaxQuantity(this);
+                    }
+                }, { once: true });
+            }
+
+            // FIX (Issue A / Bug 3): pre-select the blend's actual stored source
+            // now that the dropdowns have real options. th:field already puts the
+            // raw values into the DOM via Thymeleaf-rendered <select> attributes,
+            // but since these <option> lists are rebuilt dynamically by this fetch,
+            // any server-side selection gets wiped out — so we re-apply it here.
+            const savedBlendingNumber = document.getElementById('blendingNumberDropdown').getAttribute('data-saved-value');
+            const savedBatchNumber = document.getElementById('batchNumberDropdown').getAttribute('data-saved-value');
+
+            if (bnd && savedBlendingNumber) {
+                bnd.value = savedBlendingNumber;
+                if (bnd.value === savedBlendingNumber) updateMaxQuantity(bnd);
+            }
+            if (btd && savedBatchNumber) {
+                btd.value = savedBatchNumber;
+                if (btd.value === savedBatchNumber) updateMaxQuantity(btd);
+            }
+        })
+        .catch(err => console.error("Error fetching grade data:", err));
+}
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const errorMsg = document.querySelector('.spring-error');
+        if(errorMsg && errorMsg.innerText.trim() !== '') {
+            Swal.fire({ icon: 'error', title: 'Server Rejected', text: errorMsg.innerText, confirmButtonColor: '#d32f2f' });
+        }
+
+        const successMsg = document.querySelector('.spring-success');
+        if(successMsg && successMsg.innerText.trim() !== '') {
+            Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: successMsg.innerText, showConfirmButton: false, timer: 3000 });
+        }
+
+       const blendModalEl = document.getElementById('blendModal');
+const idInput = document.getElementById('id');
+let shouldOpenModal = false;
+
+if (idInput && idInput.value && idInput.value.trim() !== '' && idInput.value !== '0') {
+    shouldOpenModal = true;
+} else if (sessionStorage.getItem('keepModalOpen') === 'true') {
+    shouldOpenModal = true;
+    if(document.getElementById('invoiceNumber')) document.getElementById('invoiceNumber').value = sessionStorage.getItem('lastInvoice') || '';
+    if(document.getElementById('buyerInfo')) document.getElementById('buyerInfo').value = sessionStorage.getItem('lastBuyer') || '';
+    if(document.getElementById('finishedGoodNumber')) document.getElementById('finishedGoodNumber').value = sessionStorage.getItem('lastFG') || '';
+    if(document.getElementById('recipeSelect')) document.getElementById('recipeSelect').value = sessionStorage.getItem('lastProduct') || '';
+    if(document.getElementById('recipeTargetWeight')) document.getElementById('recipeTargetWeight').value = sessionStorage.getItem('lastTargetWeight') || '';
+
+    if(idInput) idInput.value = '';
+    sessionStorage.removeItem('keepModalOpen');
+} else if (document.getElementById('invoiceNumber') && document.getElementById('invoiceNumber').value.trim() !== '') {
+    // "Add Grade" mode: server pre-filled invoiceNumber/buyerInfo/productName/
+    // targetTotalWeight/finishedGoodNumber via /blending/addGrade/{invoiceNumber}.
+    // id stays empty so submitting creates a NEW row instead of overwriting existing ones.
+    shouldOpenModal = true;
+}
+
+if (shouldOpenModal && blendModalEl) {
+    setTimeout(() => {
+        const myModal = new bootstrap.Modal(blendModalEl);
+        myModal.show();
+
+        const currentInv = document.getElementById('invoiceNumber').value;
+        if (currentInv && invSelect) {
+            invSelect.value = currentInv;
+        }
+
+        const gradeSel = document.getElementById('gradeSelect');
+        if (gradeSel && gradeSel.value) refreshData();
+
+        checkRecipeStock();
+    }, 150);
+}
+
+        if (blendModalEl) {
+            blendModalEl.addEventListener('shown.bs.modal', function () {
+                const gradeSel = document.getElementById('gradeSelect');
+                if (gradeSel && gradeSel.value) refreshData();
+            });
+        }
+
+        const bnd = document.getElementById('blendingNumberDropdown');
+        const btd = document.getElementById('batchNumberDropdown');
+        if (bnd && btd) {
+            bnd.addEventListener('change', function() {
+                if (this.value !== "") { btd.value = "FROM-REMNANTS"; updateMaxQuantity(this); }
+            });
+            btd.addEventListener('change', function() {
+                if (this.value !== "FROM-REMNANTS") { bnd.value = ""; updateMaxQuantity(this); }
+            });
+        }
+
+        const searchInput = document.getElementById('blendSearch');
+        const clearBtn = document.getElementById('clearBlendSearch');
+        const container = document.getElementById('blendCardContainer');
+
+        if (searchInput && container) {
+            searchInput.addEventListener('keyup', function() {
+                const filter = this.value.toLowerCase();
+                const cards = container.getElementsByClassName('blend-card');
+                let found = false;
+                clearBtn.style.display = filter === "" ? "none" : "block";
+
+                for (let card of cards) {
+                    const invoice = card.querySelector('.invoice-number').innerText.toLowerCase();
+                    const buyer = card.querySelector('.buyer-info').innerText.toLowerCase();
+                    if (invoice.includes(filter) || buyer.includes(filter)) {
+                        card.style.display = "";
+                        found = true;
+                    } else {
+                        card.style.display = "none";
+                    }
+                }
+            });
+
+            clearBtn.onclick = () => {
+                searchInput.value = "";
+                searchInput.dispatchEvent(new Event('keyup'));
+            };
+        }
+    });
+</script>
+
+</body>
+</html>

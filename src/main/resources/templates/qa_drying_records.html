@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Drying & Quality Controls | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --bg-surface: #ffffff;
+            --border-light: #e2e8f0;
+            --border-focus: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --text-light: #94a3b8;
+            --success: #059669;
+            --success-bg: #ecfdf5;
+            --danger: #dc2626;
+            --danger-bg: #fef2f2;
+            --warning: #d97706;
+            --warning-bg: #fffbeb;
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-sans);
+            background: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── HEADER ───────────────────────────── */
+        .header {
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-light);
+            padding: 0 40px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; top: 0;
+            z-index: 100;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 20px; }
+        .wordmark { font-size: 1rem; font-weight: 600; color: var(--text-main); letter-spacing: -0.02em; }
+        .divider-v { width: 1px; height: 16px; background: var(--border-light); }
+        .page-title { font-size: 0.85rem; font-weight: 500; color: var(--text-muted); }
+
+        .live-dot {
+            display: flex;
+            align-items: center; gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .live-dot::before {
+            content: '';
+            display: block; width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .header-right { display: flex; align-items: center; gap: 16px; }
+
+        .notif-btn {
+            position: relative;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            transition: color 0.15s;
+        }
+        .notif-btn:hover { color: var(--text-main); }
+
+        .notif-badge {
+            position: absolute;
+            top: 2px; right: 2px;
+            min-width: 16px; height: 16px;
+            border-radius: 8px;
+            background: var(--danger);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center; justify-content: center;
+            border: 2px solid var(--bg-surface);
+        }
+        .notif-badge.d-none { display: none !important; }
+
+        .btn-back {
+            display: flex;
+            align-items: center; gap: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .btn-back:hover { color: var(--text-main); }
+
+        /* ─── MAIN CONTENT ──────────────────────── */
+        .main { padding: 32px 40px; max-width: 1600px; margin: 0 auto; }
+
+        /* ─── STATS ROW ─────────────────────────── */
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-item {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+            contain: layout style paint;
+        }
+
+        .stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+        .stat-value { font-size: 1.5rem; font-weight: 600; color: var(--text-main); line-height: 1.2; }
+        .stat-sub { font-size: 0.75rem; color: var(--text-light); }
+
+        /* ─── TABLE ─────────────────────────────── */
+        .table-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .table-header-bar {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .table-header-bar h3 { font-size: 1rem; font-weight: 600; margin: 0; }
+
+        .table-wrapper { overflow-x: auto; }
+
+        .qa-table { width: 100%; border-collapse: collapse; text-align: left; }
+
+        .qa-table th {
+            padding: 12px 24px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-light);
+            background: #fdfdfd;
+            position: sticky;
+            top: 0;
+        }
+
+        .qa-table td {
+            padding: 16px 24px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+        }
+
+        .qa-table tr:last-child td { border-bottom: none; }
+
+        .row-approved td:first-child { box-shadow: inset 3px 0 0 var(--success); }
+        .row-critical td:first-child { box-shadow: inset 3px 0 0 var(--danger); background-color: var(--danger-bg); }
+
+        /* ─── TABLE CELLS ───────────────────────── */
+        .lot-tag { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-main); font-weight: 500; }
+
+        .weights-grid {
+            display: inline-grid;
+            grid-template-columns: repeat(3, minmax(65px, 1fr));
+            gap: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
+        .weight-cell { display: flex; gap: 4px; align-items: center; }
+        .weight-cell .wlbl { color: var(--text-light); font-weight: 500; }
+
+        .loss-chip { font-family: var(--font-mono); font-size: 0.8rem; color: var(--danger); font-weight: 500; }
+
+        .moisture-grid {
+            display: inline-grid;
+            grid-template-columns: repeat(4, minmax(48px, 1fr));
+            gap: 12px;
+        }
+
+        .moisture-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+
+        .moisture-cell .mlbl {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+
+        .moisture-cell .mval {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .moisture-cell .mval.danger { color: var(--danger); }
+
+        .officer-cell { display: flex; align-items: center; gap: 8px; }
+
+        .officer-avatar {
+            width: 26px; height: 26px;
+            border-radius: 50%;
+            background: var(--success-bg);
+            color: var(--success);
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .officer-name { color: var(--text-main); font-weight: 500; }
+
+        .empty-row td {
+            padding: 60px 24px;
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .empty-row i { font-size: 1.5rem; color: var(--text-light); margin-bottom: 10px; display: block; }
+
+        .metrics-row {
+            display: flex;
+            gap: 24px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+        }
+
+        .metric-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-main);
+            white-space: nowrap;
+        }
+
+        .metric-item i { color: var(--text-light); font-size: 0.75rem; }
+        .metric-item.danger { color: var(--danger); font-weight: 600; }
+        .metric-item.danger i { color: var(--danger); }
+
+        /* ─── QA FORM ───────────────────────────── */
+        .qa-form {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .rh-input-wrap { position: relative; }
+
+        .rh-input-wrap input {
+            width: 80px;
+            height: 32px;
+            padding: 0 24px 0 10px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .rh-input-wrap input::placeholder { color: var(--text-light); }
+        .rh-input-wrap input:focus { border-color: var(--border-focus); background: var(--bg-body); }
+
+        .rh-unit {
+            position: absolute;
+            right: 8px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem;
+            color: var(--text-light);
+            pointer-events: none;
+        }
+
+        .status-select {
+            height: 32px;
+            padding: 0 28px 0 10px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            transition: border-color 0.15s;
+        }
+
+        .status-select:focus { border-color: var(--border-focus); background-color: var(--bg-body); }
+
+        .btn-sync {
+            height: 32px;
+            padding: 0 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .btn-sync:hover { background: var(--bg-body); border-color: var(--border-focus); }
+        .btn-sync:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-sync.syncing { opacity: 0.6; }
+
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        /* ─── PAGINATION ───────────────────────── */
+        .pagination-wrap {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding: 16px 0;
+        }
+
+        .pagination-wrap button {
+            height: 32px;
+            padding: 0 12px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .pagination-wrap button:hover:not(:disabled) {
+            background: var(--bg-body);
+            border-color: var(--border-focus);
+        }
+
+        .pagination-wrap button.active {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+
+        .pagination-wrap button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 0 12px;
+        }
+
+        /* ─── LOADING STATES ───────────────────── */
+        .skeleton-row td {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            height: 16px;
+            color: transparent;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--border-light);
+            border-top-color: var(--success);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ─── RESPONSIVE ───────────────────────── */
+        @media (max-width: 768px) {
+            .main { padding: 20px 16px; }
+            .header { padding: 0 16px; }
+            .stats-strip { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+            .weights-grid { grid-template-columns: repeat(2, 1fr); }
+            .metrics-row { gap: 12px; flex-wrap: wrap; }
+        }
+    </style>
+</head>
+
+<body>
+
+<header class="header">
+    <div class="header-left">
+        <div class="wordmark">LumiLeaf</div>
+        <div class="divider-v"></div>
+        <div class="page-title">Drying QA Control</div>
+        <div class="divider-v"></div>
+        <div class="live-dot">Floor Feed Active</div>
+    </div>
+    <div class="header-right">
+        <a th:href="@{/qa_dashboard}" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Overview
+        </a>
+    </div>
+</header>
+
+<main class="main">
+
+    <div class="stats-strip">
+        <div class="stat-item">
+            <span class="stat-label">Total Batches</span>
+            <span class="stat-value" id="statTotal">—</span>
+            <span class="stat-sub">In session</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Approved</span>
+            <span class="stat-value" style="color:var(--success)" id="statApproved">—</span>
+            <span class="stat-sub">Passed QA</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Critical Flags</span>
+            <span class="stat-value" style="color:var(--danger)" id="statCritical">—</span>
+            <span class="stat-sub">Temp &lt;85 or Moisture &gt;4%</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Pending Sync</span>
+            <span class="stat-value" style="color:var(--warning)" id="statPending">—</span>
+            <span class="stat-sub">Awaiting review</span>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header-bar d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h3>Batch Records</h3>
+
+            <form method="GET" th:action="@{/qa-drying-records}" class="d-flex gap-2 align-items-center mb-0">
+                <input type="date" name="startDate" th:value="${startDate}" class="form-control form-control-sm" style="width: 140px;">
+                <span class="text-muted small">to</span>
+                <input type="date" name="endDate" th:value="${endDate}" class="form-control form-control-sm" style="width: 140px;">
+                <button type="submit" class="btn btn-dark btn-sm px-3">Filter</button>
+                <a th:href="@{/qa-drying-records}" class="btn btn-outline-secondary btn-sm">Reset</a>
+            </form>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="qa-table" id="qa-table-body">
+                <thead>
+                <tr>
+                    <th>Batch No</th>
+                    <th>Lot ID</th>
+                    <th>Constituent Weights (kg)</th>
+                    <th>Moisture by Dhool (%)</th>
+                    <th>Officer</th>
+                    <th>Temperature</th>
+                    <th>Quality Validation &amp; Sync</th>
+                </tr>
+                </thead>
+                <tbody id="table-tbody">
+                <tr th:if="${#lists.isEmpty(dryingRecords)}" class="empty-row">
+                    <td colspan="7">
+                        <i class="fas fa-wind"></i>
+                        No drying batches for this date range yet.
+                    </td>
+                </tr>
+                <tr th:each="record : ${dryingRecords}"
+                    th:classappend="${(record.temperature != null and record.temperature < 85) or (record.moistureContent != null and record.moistureContent > 4)} ? 'row-critical' : ((${record.status == 'APPROVED'} or ${record.status == 'CONSOLIDATED'}) ? 'row-approved' : '')">
+
+                    <td>
+                        <span class="fw-bold text-dark" th:text="${record.productionId != null and record.productionId != '' ? record.productionId : record.lotNumber}">BATCH-00</span>
+                    </td>
+                    <td>
+                        <span class="lot-tag" th:text="${record.lotNumber}">LOT NUMBER</span>
+                    </td>
+
+                    <td>
+                        <div class="weights-grid" style="grid-template-columns: repeat(4, 1fr);">
+                            <div class="weight-cell">
+                                <span class="wlbl">D1:</span>
+                                <span th:text="${record.dhool1 != null ? record.dhool1 : '0.0'}">0.0</span>
+                            </div>
+                            <div class="weight-cell">
+                                <span class="wlbl">D2:</span>
+                                <span th:text="${record.dhool2 != null ? record.dhool2 : '0.0'}">0.0</span>
+                            </div>
+                            <div class="weight-cell">
+                                <span class="wlbl">D3:</span>
+                                <span th:text="${record.dhool3 != null ? record.dhool3 : '0.0'}">0.0</span>
+                            </div>
+                            <div class="weight-cell">
+                                <span class="wlbl">BB:</span>
+                                <span th:text="${record.bigBulk != null ? record.bigBulk : '0.0'}">0.0</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="moisture-grid">
+                            <div class="moisture-cell">
+                                <span class="mlbl">D1</span>
+                                <span class="mval" th:classappend="${record.moistureD1 != null and record.moistureD1 > 4} ? 'danger'" th:text="${record.moistureD1 != null ? record.moistureD1 + '%' : '—'}">—</span>
+                            </div>
+                            <div class="moisture-cell">
+                                <span class="mlbl">D2</span>
+                                <span class="mval" th:classappend="${record.moistureD2 != null and record.moistureD2 > 4} ? 'danger'" th:text="${record.moistureD2 != null ? record.moistureD2 + '%' : '—'}">—</span>
+                            </div>
+                            <div class="moisture-cell">
+                                <span class="mlbl">D3</span>
+                                <span class="mval" th:classappend="${record.moistureD3 != null and record.moistureD3 > 4} ? 'danger'" th:text="${record.moistureD3 != null ? record.moistureD3 + '%' : '—'}">—</span>
+                            </div>
+                            <div class="moisture-cell">
+                                <span class="mlbl">BB</span>
+                                <span class="mval" th:classappend="${record.moistureBB != null and record.moistureBB > 4} ? 'danger'" th:text="${record.moistureBB != null ? record.moistureBB + '%' : '—'}">—</span>
+                            </div>
+                        </div>
+                    </td>
+
+                    <td>
+                        <div class="officer-cell">
+                            <span class="officer-avatar" th:text="${record.dryingOfficer != null ? #strings.substring(record.dryingOfficer, 0, 1) : '?'}">?</span>
+                            <span class="officer-name" th:text="${record.dryingOfficer != null ? record.dryingOfficer : 'Unknown'}">Unknown</span>
+                        </div>
+                    </td>
+
+                    <td>
+                        <div class="metric-item" th:classappend="${record.temperature != null and record.temperature < 85} ? 'danger'">
+                            <i class="fas fa-thermometer-half"></i>
+                            <span th:text="${record.temperature != null ? record.temperature + '°C' : '—'}">0°C</span>
+                        </div>
+                    </td>
+
+                    <td>
+                        <form class="qa-form" onsubmit="return false;" th:id="'form-' + ${record.id}">
+                            <input type="hidden" name="id" th:value="${record.id}"/>
+
+                            <div class="rh-input-wrap">
+                                <input type="number" step="0.1" name="humidity" class="humidity-input" placeholder="RH"
+                                       th:value="${record.humidity != 0.0 ? record.humidity : ''}"
+                                       th:disabled="${record.status == 'APPROVED' or record.status == 'REJECTED' or record.status == 'CONSOLIDATED'}"/>
+                                <span class="rh-unit">%</span>
+                            </div>
+
+                            <div class="d-flex align-items-center gap-2" th:id="'status-container-' + ${record.id}">
+                                <th:block th:if="${record.status == 'APPROVED'}">
+                                    <span class="badge bg-success px-3 py-2 fs-6 shadow-sm">Approved</span>
+                                </th:block>
+                                <th:block th:if="${record.status == 'CONSOLIDATED'}">
+                                    <span class="badge bg-success px-3 py-2 fs-6 shadow-sm">Consolidated</span>
+                                </th:block>
+                                <th:block th:if="${record.status == 'REJECTED'}">
+                                    <span class="badge bg-danger px-3 py-2 fs-6 shadow-sm">Rejected</span>
+                                </th:block>
+
+                                <th:block th:if="${record.status == 'PENDING' or record.status == 'DRYING'}">
+                                    <select name="status" class="status-select">
+                                        <option value="PENDING" th:selected="${record.status == 'PENDING' or record.status == 'DRYING'}">Pending</option>
+                                        <option value="APPROVED">Approve</option>
+                                        <option value="REJECTED">Reject</option>
+                                    </select>
+                                    <button type="button" class="btn-sync" th:data-lot="${record.lotNumber}" th:data-id="${record.id}">
+                                        <i class="fas fa-sync-alt"></i> Sync
+                                    </button>
+                                </th:block>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-wrap" id="pagination-wrap">
+        </div>
+    </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ── Configuration ──
+    const CONFIG = {
+        ROWS_PER_PAGE: 10,
+        NOTIFICATION_POLL_INTERVAL: 30000, // 30s instead of 10s
+        NOTIFICATION_BATCH_SIZE: 5,
+    };
+
+    // ── State Management ──
+    let tableData = [];
+    let currentPage = 1;
+    let totalPages = 1;
+    let lastSeenCounts = {};
+    let syncDebounce = {};
+
+    // ── Initialize on Page Load ──
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeTable();
+        computeStats();
+        setupEventListeners();
+        checkNotifications();
+        setInterval(checkNotifications, CONFIG.NOTIFICATION_POLL_INTERVAL);
+    });
+
+    // ── Initialize Table from Thymeleaf Data ──
+    function initializeTable() {
+        const tbody = document.getElementById('table-tbody');
+        const rows = tbody.querySelectorAll('tr');
+
+        tableData = [];
+        rows.forEach((row, idx) => {
+            tableData.push({
+                index: idx,
+                element: row
+            });
+        });
+
+        totalPages = Math.ceil(tableData.length / CONFIG.ROWS_PER_PAGE);
+        renderPage(1);
+    }
+
+    // ── Render Current Page ──
+    function renderPage(page) {
+        currentPage = Math.max(1, Math.min(page, totalPages));
+        const start = (currentPage - 1) * CONFIG.ROWS_PER_PAGE;
+        const end = start + CONFIG.ROWS_PER_PAGE;
+
+        const tbody = document.getElementById('table-tbody');
+        tbody.innerHTML = '';
+
+        tableData.slice(start, end).forEach(item => {
+            tbody.appendChild(item.element);
+        });
+
+        renderPagination();
+        computeStats();
+    }
+
+    // ── Render Pagination Controls ──
+    function renderPagination() {
+        const paginationWrap = document.getElementById('pagination-wrap');
+        paginationWrap.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '← Prev';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.onclick = () => renderPage(currentPage - 1);
+        paginationWrap.appendChild(prevBtn);
+
+        const info = document.createElement('span');
+        info.className = 'pagination-info';
+        info.textContent = `Page ${currentPage} of ${totalPages}`;
+        paginationWrap.appendChild(info);
+
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Next →';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.onclick = () => renderPage(currentPage + 1);
+        paginationWrap.appendChild(nextBtn);
+    }
+
+    // ── Compute Live Stats ──
+    function computeStats() {
+        const rows = document.querySelectorAll('.qa-table tbody tr');
+        let approved = 0, critical = 0, pending = 0;
+
+        rows.forEach(r => {
+            if (r.classList.contains('row-critical')) {
+                critical++;
+            }
+
+            const statusSelect = r.querySelector('.status-select');
+            // If the dropdown exists, it's pending. If not, check if it has the approved badge
+            if (statusSelect) {
+                const status = statusSelect.value;
+                if (status === 'APPROVED') approved++;
+                else if (status === 'PENDING' || status === 'DRYING') pending++;
+            } else if (r.classList.contains('row-approved')) {
+                approved++;
+            }
+        });
+
+        document.getElementById('statTotal').textContent = tableData.length;
+        document.getElementById('statApproved').textContent = approved;
+        document.getElementById('statCritical').textContent = critical;
+        document.getElementById('statPending').textContent = pending;
+    }
+
+    // ── Setup Event Listeners ──
+    function setupEventListeners() {
+        document.querySelectorAll('.btn-sync').forEach(button => {
+            button.addEventListener('click', handleSyncClick);
+        });
+
+        document.querySelectorAll('.status-select').forEach(select => {
+            select.addEventListener('change', computeStats);
+        });
+    }
+
+    // ── Issue 1 & 5 FIX: Handle Sync Button Click with AJAX (Fetch) ──
+    // Use record id for debounce & remove row on success
+function handleSyncClick(e) {
+    e.preventDefault();
+    const button = e.target.closest('button');
+    const form = button.closest('form');
+    if (!form) return;
+
+    const recordId = button.getAttribute('data-id');    // <-- use id as key
+    const lotNumber = button.getAttribute('data-lot') || 'Unknown';
+    const humidityInput = form.querySelector('.humidity-input');
+    const statusSelect = form.querySelector('.status-select');
+
+    if (!humidityInput || !statusSelect) return;
+
+    const humidityText = humidityInput.value.trim();
+    const humidity = parseFloat(humidityText);
+    const status = statusSelect.value;
+
+    // Debounce spam clicks keyed by unique id (was previously keyed by lotNumber)
+    if (syncDebounce[recordId]) return;
+
+    // Validation
+    if (status === 'APPROVED') {
+        if (humidityText === '' || isNaN(humidity) || humidity <= 0) {
+            humidityInput.classList.add('border', 'border-danger');
+            Swal.fire({
+                icon: 'error',
+                title: 'Humidity Required',
+                text: `Batch ${lotNumber} cannot be approved without a valid Room Humidity reading.`,
+                confirmButtonColor: '#0f172a',
+                confirmButtonText: 'OK'
+            });
+            return;
+        }
+        if (humidity > 100) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Reading',
+                text: `${humidity}% humidity is not physically possible. Please verify the reading.`,
+                confirmButtonColor: '#0f172a',
+                confirmButtonText: 'Correct'
+            });
+            return;
+        }
+        humidityInput.classList.remove('border-danger');
+    }
+
+    // Debounce and UI lock
+    button.disabled = true;
+    button.classList.add('syncing');
+    syncDebounce[recordId] = true;
+
+    const formData = new URLSearchParams();
+    formData.append("id", recordId);
+    formData.append("status", status);
+    if (humidityText !== '') formData.append("humidity", humidity);
+
+    // AJAX Fetch Call to prevent page redirect
+    fetch('/api/qa/drying/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+    })
+    .then(async response => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Server error occurred during processing.');
+        return data;
+    })
+    .then(data => {
+        if (data.success) {
+            // If approved or rejected, remove row from DOM and update internal state
+            if (data.newStatus === 'APPROVED' || data.newStatus === 'REJECTED' || data.newStatus === 'CONSOLIDATED') {
+                const tr = form.closest('tr');
+                if (tr && tr.parentNode) {
+                    // Remove from DOM
+                    tr.parentNode.removeChild(tr);
+
+                    // Remove from our tableData array so pagination and counters stay correct
+                    const idx = tableData.findIndex(item => item.element === tr);
+                    if (idx !== -1) {
+                        tableData.splice(idx, 1);
+                    }
+
+                    // Recalculate pagination and re-render current page safely
+                    totalPages = Math.max(1, Math.ceil(tableData.length / CONFIG.ROWS_PER_PAGE));
+                    if (currentPage > totalPages) currentPage = totalPages;
+                    renderPage(currentPage);
+                }
+            } else {
+                // Fallback: show returned status badge and disable the row inputs
+                const container = document.getElementById(`status-container-${recordId}`);
+                if (container) {
+                    container.innerHTML = `<span class="badge bg-success px-3 py-2 fs-6 shadow-sm">${data.newStatus}</span>`;
+                    humidityInput.disabled = true;
+                    const tr = form.closest('tr');
+                    if (tr) tr.classList.add('row-approved');
+                    computeStats();
+                }
+            }
+
+            computeStats();
+
+            Swal.fire({
+                toast: true, position: 'top-end',
+                icon: 'success', title: data.message,
+                showConfirmButton: false, timer: 3000
+            });
+        }
+    })
+    .catch(err => {
+        Swal.fire({
+            icon: 'error', title: 'Update Failed',
+            text: err.message, confirmButtonColor: '#0f172a'
+        });
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.classList.remove('syncing');
+        delete syncDebounce[recordId];
+    });
+}
+
+    // ── Check Notifications with Optimized Polling (Preserved Exactly) ──
+    function checkNotifications() {
+        fetch('/api/qa/record-counts', { signal: AbortSignal.timeout(5000) })
+            .then(res => res.ok ? res.json() : Promise.reject('API error'))
+            .then(newCounts => {
+                if (!lastSeenCounts || Object.keys(lastSeenCounts).length === 0) {
+                    lastSeenCounts = newCounts;
+                    return;
+                }
+
+                const totalNew = Object.keys(newCounts).reduce((sum, key) => {
+                    return sum + Math.max(0, (newCounts[key] || 0) - (lastSeenCounts[key] || 0));
+                }, 0);
+
+                const badge = document.getElementById('notifBadge');
+                if (totalNew > 0) {
+                    badge.textContent = Math.min(totalNew, 99); // Cap at 99
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+            })
+            .catch(err => console.debug('Notification check skipped:', err.message));
+    }
+
+    // ── View Notifications (Preserved Exactly) ──
+    function viewNotifications() {
+        if (!lastSeenCounts || Object.keys(lastSeenCounts).length === 0) {
+            Swal.fire({
+                icon: 'info',
+                title: 'All caught up',
+                text: 'No new records since last check.',
+                timer: 1800,
+                showConfirmButton: false,
+                confirmButtonColor: '#0f172a'
+            });
+            return;
+        }
+
+        let html = '<div class="text-start mt-2">';
+        const labels = {
+            weighing: 'new weighing records',
+            withering: 'new withering records',
+            rolling: 'new rolling records',
+            drying: 'new drying records'
+        };
+
+        Object.entries(labels).forEach(([key, label]) => {
+            const count = lastSeenCounts[key] || 0;
+            if (count > 0) {
+                html += `<div class="mb-2"><strong>${count}</strong> ${label}</div>`;
+            }
+        });
+
+        html += '</div>';
+
+        if (html === '<div class="text-start mt-2"></div>') {
+            Swal.fire({
+                icon: 'info',
+                title: 'All caught up',
+                text: 'No new records.',
+                timer: 1800,
+                showConfirmButton: false,
+                confirmButtonColor: '#0f172a'
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Factory Feed',
+            html,
+            icon: 'info',
+            confirmButtonColor: '#0f172a',
+            confirmButtonText: 'Mark as Read'
+        }).then(() => {
+            document.getElementById('notifBadge').classList.add('d-none');
+        });
+    }
+</script>
+</body>
+</html>

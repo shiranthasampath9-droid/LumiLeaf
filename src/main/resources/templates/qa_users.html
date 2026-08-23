@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>QA - Users</title>
+</head>
+<body>
+
+<h2>All Admin Users</h2>
+
+<table border="1">
+    <tr>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Device</th>
+        <th>Action</th>
+    </tr>
+
+    <tr th:each="u : ${users}">
+        <td th:text="${u.username}"></td>
+        <td th:text="${u.role}"></td>
+        <td th:text="${u.deviceAccess}"></td>
+        <td>
+            <a th:href="@{'/delete/' + ${u.id}}">Delete</a>
+        </td>
+    </tr>
+
+</table>
+
+<br>
+<a href="/qa_dashboard">Back</a>
+
+</body>
+</html>

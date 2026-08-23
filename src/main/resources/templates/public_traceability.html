@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>LumiLeaf | Tea Origin Report</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        :root {
+            --primary: #2e7d32;
+            --secondary: #3fa17a;
+            --glass: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f1f8e9 0%, #dcedc8 100%);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: var(--primary);
+            letter-spacing: 2px;
+            margin: 0;
+        }
+
+        .fg-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            color: var(--primary);
+            font-size: 1.1em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+
+        .section-title i {
+            margin-right: 10px;
+        }
+
+        .timeline-item {
+            padding-left: 20px;
+            border-left: 3px solid var(--secondary);
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            background: var(--primary);
+            border-radius: 50%;
+        }
+
+        .farmer-tag {
+            display: inline-block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 5px 12px;
+            border-radius: 15px;
+            margin: 5px;
+            font-size: 0.85em;
+            border: 1px solid #c8e6c9;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="header">
+        <h1>LUMILEAF</h1>
+        <p>AUTHENTICITY & TRACEABILITY REPORT</p>
+        <div class="fg-badge" th:text="${fgNumber}">FG-2026-001</div>
+    </div>
+
+    <!-- Updated Finished Good Details -->
+    <div class="card">
+        <div class="section-title">
+            <i class="fas fa-box-open"></i> Finished Good Details
+        </div>
+
+        <p>
+            <strong>Blending Number:</strong>
+            <span th:text="${data.blend.productName}">BLEND-45</span>
+        </p>
+
+        <p>
+            <strong>Packaged On:</strong>
+            <span th:text="${data.blend.blendingDate}">2026-03-08</span>
+        </p>
+
+        <p>
+            <strong>Buyer:</strong>
+            <span th:text="${data.blend.buyerInfo}">Export Market</span>
+        </p>
+    </div>
+
+    <!-- New Grade Composition Card -->
+    <div class="card">
+        <div class="section-title">
+            <i class="fas fa-flask"></i> Grade Composition
+        </div>
+
+        <div th:each="line : ${data.blendLines}" style="margin-bottom:10px;">
+            <p style="margin:0;">
+                <strong th:text="${line.grade}">BOPF</strong>
+                —
+                <span th:text="${line.quantity}">100.0</span> kg
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title">
+            <i class="fas fa-industry"></i> Production Journey
+        </div>
+
+        <div th:each="batch : ${data.batches}" class="timeline-item">
+            <p>
+                <strong>Batch Lot:</strong>
+                <span th:text="${batch.lotNumber}">LOT-101</span>
+            </p>
+
+            <p>
+                <strong>Processed Date:</strong>
+                <span th:text="${batch.productionDate}">2026-03-05</span>
+            </p>
+
+            <small>
+                Green Leaves Qty:
+                <span th:text="${batch.greenLeavesQty}">500</span> kg
+            </small>
+        </div>
+    </div>
+
+    <div class="card" style="background:#f1f8e9;">
+        <div class="section-title">
+            <i class="fas fa-leaf"></i> Cultivated By
+        </div>
+        <p style="font-size:0.9em;margin-bottom:10px;">
+            This tea was sourced from the following registered suppliers, shown with each farmer's contribution to this product:
+        </p>
+        <div class="farmer-list">
+            <div th:each="farmer : ${data.farmerContributions}"
+                 class="farmer-tag"
+                 style="cursor:pointer;"
+                 th:onclick="'showFarmerDetail(\'' + ${farmer.supplierId} + '\')'">
+                <i class="fas fa-user-check"></i>
+                <span th:text="${farmer.supplierName}">J.P. Perera</span>
+                <strong th:text="' — ' + ${farmer.percent} + '%'"></strong>
+            </div>
+        </div>
+        <p th:if="${#lists.isEmpty(data.farmerContributions)}" class="text-muted small mt-2">
+            Farmer contribution data is not available for this product.
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2026 LumiLeaf Tea Factory Management System</p>
+        <p>Scan verified by Blockchain-ready traceability</p>
+    </div>
+
+</div>
+<script>
+    function showFarmerDetail(supplierId) {
+        fetch(`/api/supplier/${supplierId}/detail`)
+            .then(res => res.json())
+            .then(data => {
+                const photoHtml = data.photoUrl
+                    ? `<img src="${data.photoUrl}" style="width:100%;max-width:220px;border-radius:12px;margin-bottom:10px;">`
+                    : `<div style="color:#999;font-size:0.85em;margin-bottom:10px;">No photo available</div>`;
+                const landPhotoHtml = data.landPhotoUrl
+                    ? `<img src="${data.landPhotoUrl}" style="width:100%;max-width:220px;border-radius:12px;margin-bottom:10px;">`
+                    : `<div style="color:#999;font-size:0.85em;margin-bottom:10px;">No land photo available</div>`;
+                const hasLocation = data.latitude != null && data.longitude != null;
+                const mapsUrl = hasLocation ? `https://www.google.com/maps?q=${data.latitude},${data.longitude}` : null;
+
+                Swal.fire({
+                    title: data.name || 'Unknown Farmer',
+                    html: `<div style="text-align:left;">
+                        <div style="font-size:0.85em;color:#666;margin-bottom:10px;">Farmer ID: ${data.supplierId}</div>
+                        ${photoHtml}${landPhotoHtml}
+                    </div>`,
+                    showCancelButton: hasLocation,
+                    confirmButtonText: hasLocation ? 'View in Maps' : 'Close',
+                    confirmButtonColor: '#2e7d32',
+                    cancelButtonText: 'Close',
+                    showConfirmButton: true
+                }).then((result) => {
+                    if (hasLocation && result.isConfirmed) window.open(mapsUrl, '_blank');
+                });
+            })
+            .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Could not load farmer details.' }));
+    }
+</script>
+</body>
+</html>

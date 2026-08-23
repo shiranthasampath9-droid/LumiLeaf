@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Stock Production Management | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-green: #409176;
+            --soft-bg: #f4f7f6;
+        }
+        body { background-color: var(--soft-bg); font-family: 'Inter', sans-serif; }
+        .navbar-custom { background: var(--primary-green); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .main-container { padding: 2rem; }
+        .table-card { border-radius: 15px; border: none; background: white; overflow: hidden; }
+
+        .lot-badge {
+            background: #e2f0ec;
+            color: #2b614f;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            border: 1px solid rgba(64, 145, 118, 0.15);
+        }
+
+        .status-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 30px;
+            text-transform: uppercase;
+            display: inline-block;
+        }
+        .badge-approved { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+        .badge-rejected { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+        .badge-pending { background: #fff8e1; color: #b78103; border: 1px solid #ffe082; }
+
+        /* Styling to keep file inputs organized alongside action grids */
+        .compact-upload-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .compact-file-input {
+            font-size: 0.8rem;
+            border-radius: 20px;
+            padding: 4px 12px;
+            max-width: 150px;
+        }
+
+        .btn-action-pill {
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        /* ── FIX (stock_production.html actions column): the action column used to
+           stack Upload/Lab, Approve-Undo-Reject, Edit Production and Farmer
+           Contribution as 4 separate rows of very different widths, giving a
+           ragged "staircase" look. actions-column now has a fixed width so every
+           row lines up on the same right edge, and the row wrapper below groups
+           Edit Production + Farmer Contribution onto one shared row. */
+        .actions-column { min-width: 320px; width: 320px; }
+        .actions-row { width: 100%; }
+
+        @media print {
+            .navbar-custom, .nav-buttons, .actions-column, .upload-section { display: none !important; }
+            .table { width: 100% !important; font-size: 9pt; border: 1px solid #dee2e6; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-custom d-flex justify-content-between align-items-center">
+    <span class="fw-bold"><i class="fas fa-layer-group me-2"></i> Stock Production Management</span>
+    <span class="small" th:text="${#temporals.format(#temporals.createNow(), 'MMMM dd, yyyy')}"></span>
+</nav>
+
+<div class="main-container">
+
+    <div th:if="${error}" class="d-none spring-error" th:text="${error}"></div>
+
+    <div class="d-flex justify-content-between align-items-center mb-4 nav-buttons">
+        <div class="d-flex gap-2">
+            <!-- ✅ FIX #5: Navigate to Dashboard, not Production page -->
+            <a href="/qa_dashboard" class="btn btn-light border rounded-pill px-4 fw-medium text-secondary">
+                <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
+            </a>
+            <button onclick="window.print()" class="btn btn-dark rounded-pill px-4">
+                <i class="fas fa-print me-2"></i> Print
+            </button>
+        </div>
+        <h5 class="fw-bold text-dark m-0 pe-2">Consolidated Stock Lots</h5>
+    </div>
+
+    <div class="card table-card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="stockTable">
+                <thead class="table-light">
+                <tr>
+                    <th class="ps-4">Date</th>
+                    <th>Lot Number</th>
+                    <th class="ps-4">Grade Breakdown</th>
+                    <th class="text-end">Total (KG)</th>
+                    <th class="text-end">Tested (KG)</th>
+                    <th class="text-end">Not Tested (KG)</th>
+                    <th class="text-end pe-4 actions-column">Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="stock : ${consolidatedLots}">
+
+                    <!-- 1. Date -->
+                    <td class="ps-4 fw-medium text-secondary" th:text="${stock.createdDate}">2026-05-07</td>
+
+                    <!-- 2. Lot Number & QA Badge -->
+                    <td>
+                        <div class="d-flex flex-column gap-1 align-items-start">
+                            <span class="lot-badge" th:text="${stock.lotNumber.split('\\s*\\+\\s*')[0]}">LOT-1778145404</span>
+                            <span th:if="${stock.status == 'APPROVED'}" class="status-badge badge-approved"><i class="fas fa-check-circle me-1"></i>Approved</span>
+                            <span th:if="${stock.status == 'REJECTED'}" class="status-badge badge-rejected"><i class="fas fa-times-circle me-1"></i>Rejected</span>
+                            <span th:if="${stock.status != 'APPROVED' && stock.status != 'REJECTED'}" class="status-badge badge-pending"><i class="fas fa-clock me-1"></i>Pending</span>
+                        </div>
+                    </td>
+
+                    <!-- 3. Grade Breakdown & Remarks Row -->
+                    <td class="ps-4">
+                        <div class="text-muted small font-monospace">
+                            <span th:if="${stock.op1 > 0}" th:text="'OP1: ' + ${stock.op1} + ' | '"></span>
+                            <span th:if="${stock.opa > 0}" th:text="'OPA: ' + ${stock.opa} + ' | '"></span>
+                            <span th:if="${stock.bop1 > 0}" th:text="'BOP1: ' + ${stock.bop1} + ' | '"></span>
+                            <span th:if="${stock.pekoe > 0}" th:text="'PEKOE: ' + ${stock.pekoe} + ' | '"></span>
+                            <span th:if="${stock.bop > 0}" th:text="'BOP: ' + ${stock.bop} + ' | '"></span>
+                            <span th:if="${stock.bopf > 0}" th:text="'BOPF: ' + ${stock.bopf} + ' | '"></span>
+                            <span th:if="${stock.eb > 0}" th:text="'EB: ' + ${stock.eb} + ' | '"></span>
+                            <span th:if="${stock.ffsp > 0}" th:text="'FFSP: ' + ${stock.ffsp} + ' | '"></span>
+                            <span th:if="${stock.ffexs > 0}" th:text="'FFEXS: ' + ${stock.ffexs} + ' | '"></span>
+                            <span th:if="${stock.dust > 0}" th:text="'DUST: ' + ${stock.dust} + ' | '"></span>
+                            <span th:if="${stock.bm > 0}" th:text="'BM: ' + ${stock.bm} + ' | '"></span>
+                            <span th:if="${stock.bp > 0}" th:text="'BP: ' + ${stock.bp} + ' | '"></span>
+                        </div>
+                        <div th:if="${stock.status == 'REJECTED' && stock.rejectNote != null}" class="text-danger small mt-1">
+                            <i class="fas fa-exclamation-circle me-1"></i><strong>Remark:</strong> <span th:text="${stock.rejectNote}">Reason</span>
+                        </div>
+                    </td>
+
+                    <!-- 4. Total Weight -->
+                    <td class="fw-bold text-end text-dark" th:text="${#numbers.formatDecimal(stock.total != null ? stock.total : 0, 1, 2)}">725.00</td>
+
+                    <!-- 5. Tested Column (Shows weight if Lab Report is attached) -->
+                    <td class="text-end fw-semibold text-success">
+                        <span th:if="${stock.testedQty != null and stock.testedQty > 0}" th:text="${#numbers.formatDecimal(stock.testedQty, 1, 2)}">725.00</span>
+                        <span th:if="${stock.testedQty == null or stock.testedQty == 0}" class="text-muted opacity-50">-</span>
+                    </td>
+
+                    <!-- 6. Not Tested Column -->
+                    <!-- FIX (Issue 6): Was deriving this column from pdfReportPath/total,
+                         completely bypassing stock.notTestedQty — the actual field the Edit
+                         modal saves. Now displays the real saved value directly. Falls back
+                         to total only for legacy lots created before notTestedQty existed
+                         (i.e. it's still at its 0.0 default AND nothing has been tested yet). -->
+                    <td class="text-end fw-semibold text-warning">
+                        <span th:if="${stock.notTestedQty != null and stock.notTestedQty > 0}"
+                              th:text="${#numbers.formatDecimal(stock.notTestedQty, 1, 2)}">725.00</span>
+                        <span th:if="${(stock.notTestedQty == null or stock.notTestedQty == 0) and (stock.testedQty == null or stock.testedQty == 0)}"
+                              th:text="${#numbers.formatDecimal(stock.total != null ? stock.total : 0, 1, 2)}">725.00</span>
+                        <span th:if="${(stock.notTestedQty == null or stock.notTestedQty == 0) and (stock.testedQty != null and stock.testedQty > 0)}"
+                              class="text-muted opacity-50">-</span>
+                    </td>
+
+                    <!-- 7. Action Column (Contains PDF upload and Decision controls) -->
+                    <td class="text-end pe-4 actions-column">
+                        <div class="d-flex flex-column gap-2 align-items-end justify-content-center">
+
+                            <!-- Row 1: PDF Uploader Tool & Document Review Link -->
+                            <div class="d-flex align-items-center justify-content-end gap-2 actions-row flex-nowrap">
+                                <form class="compact-upload-wrapper mb-0">
+                                    <input type="file" name="file" class="form-control form-control-sm compact-file-input" required>
+                                    <!-- ── FIX (stock_production.html #5): added th:data-id so the JS can reliably
+                                         identify which lot this upload belongs to. Previously the JS tried to
+                                         regex-parse a numeric ID out of this form's `action` attribute, but the
+                                         form has no action attribute at all, so it fell back to the current page
+                                         URL (no trailing digits) — producing "Unable to identify lot ID" every time. -->
+                                    <button type="button" class="btn btn-sm btn-outline-success rounded-pill btn-action-pill"
+                                            th:data-id="${stock.id}"
+                                            th:onclick="'uploadPdfWithAlert(this)'" th:title="${stock.pdfReportPath != null ? 'Replace Lab PDF' : 'Upload Lab Report'}">
+                                        <i class="fas fa-upload me-1"></i> Upload
+                                    </button>
+                                </form>
+
+                                <a th:if="${stock.pdfReportPath != null}"
+                                   th:href="@{/api/stock/view-pdf/{id}(id=${stock.id})}" target="_blank"
+                                   class="btn btn-sm btn-light border text-primary rounded-pill px-2 flex-shrink-0" title="Lab Report">
+                                    <i class="fas fa-file-contract"></i> Lab
+                                </a>
+                            </div>
+
+                            <!-- Row 2: Approved / Pending / Rejected Flow Actions Picker -->
+                            <div class="d-flex justify-content-end actions-row">
+                                <div class="btn-group btn-group-sm rounded-pill overflow-hidden border shadow-sm bg-light">
+                                    <button type="button" th:onclick="'changeQAStatus(' + ${stock.id} + ', \'APPROVED\')'" class="btn btn-link text-success border-end px-3 text-decoration-none fw-bold" th:disabled="${stock.status == 'APPROVED'}">
+                                        <i class="fas fa-check me-1"></i> Approve
+                                    </button>
+                                    <button type="button" th:onclick="'changeQAStatus(' + ${stock.id} + ', \'PENDING\')'" class="btn btn-link text-warning border-end px-2 text-decoration-none fw-bold" th:disabled="${stock.status != 'APPROVED' && stock.status != 'REJECTED'}">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                    <button type="button" th:onclick="'changeQAStatus(' + ${stock.id} + ', \'REJECTED\')'" class="btn btn-link text-danger px-3 text-decoration-none fw-bold" th:disabled="${stock.status == 'REJECTED'}">
+                                        <i class="fas fa-ban me-1"></i> Reject
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Row 3: Edit Production + Farmer Contribution, side by side -->
+                            <div class="d-flex justify-content-end gap-2 actions-row">
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 btn-action-pill"
+                                        th:data-id="${stock.id}"
+                                        th:data-lot="${stock.lotNumber}"
+                                        th:data-op1="${stock.op1}" th:data-opa="${stock.opa}" th:data-bop1="${stock.bop1}"
+                                        th:data-pekoe="${stock.pekoe}" th:data-bop="${stock.bop}" th:data-bopf="${stock.bopf}"
+                                        th:data-eb="${stock.eb}" th:data-ffsp="${stock.ffsp}" th:data-ffexs="${stock.ffexs}"
+                                        th:data-dust="${stock.dust}" th:data-bm="${stock.bm}" th:data-bp="${stock.bp}"
+                                        th:data-refused="${stock.refusedTea}"
+                                        th:data-not-tested="${stock.notTestedQty}"
+                                        th:data-tested="${stock.testedQty}"
+                                        onclick="openEditStockModal(this)">
+                                    <i class="fas fa-edit me-1"></i> Edit Production
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3 btn-action-pill"
+                                        th:data-id="${stock.id}"
+                                        th:data-lot="${stock.lotNumber}"
+                                        onclick="showFarmerContribution(this)">
+                                    <i class="fas fa-users me-1"></i> Farmer Contribution
+                                </button>
+                            </div>
+
+                        </div>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Stock Production Modal (Moved outside of table structure) -->
+<div class="modal fade" id="editStockModal" tabindex="-1" aria-labelledby="editStockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius: 15px;">
+            <form th:action="@{/stock-production/edit}" method="post">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="editStockModalLabel">
+                        <i class="fas fa-edit text-success me-2"></i>Edit Stock Records (<span id="modalLotTitle"></span>)
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="editId">
+
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">OP1</label>
+                            <input type="number" step="0.01" class="form-control" name="op1" id="editOp1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">OPA</label>
+                            <input type="number" step="0.01" class="form-control" name="opa" id="editOpa">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">BOP1</label>
+                            <input type="number" step="0.01" class="form-control" name="bop1" id="editBop1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">PEKOE</label>
+                            <input type="number" step="0.01" class="form-control" name="pekoe" id="editPekoe">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">BOP</label>
+                            <input type="number" step="0.01" class="form-control" name="bop" id="editBop">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">BOPF</label>
+                            <input type="number" step="0.01" class="form-control" name="bopf" id="editBopf">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">EB</label>
+                            <input type="number" step="0.01" class="form-control" name="eb" id="editEb">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">FFSP</label>
+                            <input type="number" step="0.01" class="form-control" name="ffsp" id="editFfsp">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">FFEXS</label>
+                            <input type="number" step="0.01" class="form-control" name="ffexs" id="editFfexs">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">DUST</label>
+                            <input type="number" step="0.01" class="form-control" name="dust" id="editDust">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">BM</label>
+                            <input type="number" step="0.01" class="form-control" name="bm" id="editBm">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">BP</label>
+                            <input type="number" step="0.01" class="form-control" name="bp" id="editBp">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">Refuse Tea</label>
+                            <input type="number" step="0.01" class="form-control" name="refusedTea" id="editRefused">
+                        </div>
+                        <!-- ✅ FIX #3: Not Tested field moved INSIDE modal-body and row grid -->
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">Not Tested (KG)</label>
+                            <input type="number" step="0.01" class="form-control" name="notTestedQty" id="editNotTested">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">Tested (KG)</label>
+                            <input type="number" step="0.01" class="form-control" name="testedQty" id="editTested">
+                        </div>
+                        <!-- ✅ FIX #3: Not Tested field moved INSIDE modal-body and row grid -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success rounded-pill px-4" style="background-color: var(--primary-green);">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+<script>
+    // ── FIX SET 3: `|| ''` never fires here because the data attributes carry
+    // string values like "0.0", and "0.0" is a truthy string — so zero-value
+    // grades were never actually cleared for re-entry. This helper explicitly
+    // checks for the zero-ish string forms (and null/empty) before falling back.
+    function clearIfZero(val) {
+        return (val === "0.0" || val === "0" || val == null || val === "") ? '' : val;
+    }
+
+    function openEditStockModal(button) {
+        document.getElementById('editId').value = button.getAttribute('data-id');
+        document.getElementById('modalLotTitle').innerText = button.getAttribute('data-lot');
+
+        // FIX (Issue 3 follow-up): grade fields are now ADDITIVE on the backend
+        // (editStockProduction() adds submitted amounts on top of existing stock).
+        // This form represents "amount to add", not the lot's current total — so
+        // every grade field must always start blank, regardless of its current
+        // stored value. Pre-filling with e.g. "40.0" and resubmitting unchanged
+        // would silently double it to 80.0.
+        document.getElementById('editOp1').value = '';
+        document.getElementById('editOpa').value = '';
+        document.getElementById('editBop1').value = '';
+        document.getElementById('editPekoe').value = '';
+        document.getElementById('editBop').value = '';
+        document.getElementById('editBopf').value = '';
+        document.getElementById('editEb').value = '';
+        document.getElementById('editFfsp').value = '';
+        document.getElementById('editFfexs').value = '';
+        document.getElementById('editDust').value = '';
+        document.getElementById('editBm').value = '';
+        document.getElementById('editBp').value = '';
+        document.getElementById('editRefused').value = '';
+
+        // Tested / Not Tested are still direct overwrites (unchanged semantics from
+        // before) — these keep pre-filling with the lot's actual current values.
+        document.getElementById('editNotTested').value = clearIfZero(button.getAttribute('data-not-tested'));
+        document.getElementById('editTested').value = clearIfZero(button.getAttribute('data-tested'));
+
+        var editModal = new bootstrap.Modal(document.getElementById('editStockModal'));
+        editModal.show();
+    }
+    function showFarmerContribution(button) {
+    const lotId = button.getAttribute('data-id');
+    const lotNumber = button.getAttribute('data-lot');
+    fetch(`/api/stock/${lotId}/contributions`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.length === 0) {
+                Swal.fire({ icon: 'info', title: `Farmer Contribution — ${lotNumber}`, text: 'No farmer weighing data found for this lot.' });
+                return;
+            }
+            let rows = data.map(f =>
+                `<tr>
+                    <td style="text-align:left;">${f.supplierId}</td>
+                    <td style="text-align:left;">${f.supplierName}</td>
+                    <td style="text-align:right;">${f.weightKg.toFixed(2)} kg</td>
+                    <td style="text-align:right;">${f.percent.toFixed(2)}%</td>
+                </tr>`
+            ).join('');
+            Swal.fire({
+                title: `Farmer Contribution — ${lotNumber}`,
+                html: `<div style="max-height: 350px; overflow-y:auto;">
+                    <table class="table table-sm table-striped" style="font-size: 0.85rem;">
+                        <thead><tr><th style="text-align:left;">Farmer ID</th><th style="text-align:left;">Name</th><th style="text-align:right;">Weight</th><th style="text-align:right;">%</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`,
+                width: 500,
+                confirmButtonColor: '#409176'
+            });
+        })
+        .catch(() => Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load farmer contribution data.' }));
+}
+
+    function changeQAStatus(id, targetStatus) {
+        if (targetStatus === 'REJECTED') {
+            Swal.fire({
+                title: 'Rejection Remark',
+                input: 'textarea',
+                inputLabel: 'Specify the reason for rejecting this stock lot:',
+                inputPlaceholder: 'Enter QA comments here...',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Submit Rejection',
+                preConfirm: (value) => {
+                    if (!value || value.trim() === "") {
+                        Swal.showValidationMessage('A rejection remark is required!');
+                    }
+                    return value;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    executePostStatusUpdate(id, targetStatus, result.value);
+                }
+            });
+        } else {
+            executePostStatusUpdate(id, targetStatus, '');
+        }
+    }
+
+    // ✅ FIX #4: SINGLE executePostStatusUpdate() function with fetch (DUPLICATE REMOVED)
+    function executePostStatusUpdate(id, status, remark) {
+        fetch('/api/stock/update-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+                'id': id,
+                'status': status,
+                'remark': remark
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: data.message,
+                    timer: 2500,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Failed',
+                    text: data.message
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'An error occurred: ' + error.message
+            });
+        });
+    }
+
+    // ✅ FIX #1 (BlendingController upload, re-fixed under stock_production.html #5):
+    // PDF upload now reads the lot ID directly from the button's data-id attribute
+    // instead of regex-parsing a form action URL that was never set.
+    function uploadPdfWithAlert(button) {
+        const fileInput = button.closest('.compact-upload-wrapper').querySelector('input[type="file"]');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'No File Selected',
+                text: 'Please choose a file to upload.'
+            });
+            return;
+        }
+
+        // ── FIX (stock_production.html #5): read lotId directly from the button's
+        // data-id attribute (set by th:data-id="${stock.id}" above) instead of the
+        // old regex-on-form-action approach, which always failed since the form
+        // never had an action attribute.
+        const lotId = button.getAttribute('data-id');
+
+        if (!lotId) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Unable to identify lot ID'
+            });
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch(`/api/stock/upload-pdf/${lotId}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Upload Successful',
+                    text: data.message,
+                    timer: 2500,
+                    showConfirmButton: false
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Upload Failed',
+                    text: data.message
+                });
+            }
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'An error occurred during upload: ' + error.message
+            });
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);        // Server-side validation error (e.g. grade sum exceeding lot capacity)
+        const errorMsg = document.querySelector('.spring-error');
+        if (errorMsg && errorMsg.innerText.trim() !== '') {
+            Swal.fire({ icon: 'error', title: 'Cannot Save', text: errorMsg.innerText, confirmButtonColor: '#dc3545' });
+        }        // 1. Define a modern, clean global Toast configuration instance
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+
+        // 2. Map of Spring Boot URL parameters to clean display messages
+        const notifications = {
+            // Production Controller mappings
+            'success': { icon: 'success', title: 'Report Submitted', text: 'The batch report has been successfully processed.' },
+            'syncSuccess': { icon: 'success', title: 'Record Approved', text: 'Drying records successfully updated and synchronized.' },
+            'deleted': { icon: 'info', title: 'Record Deleted', text: 'The selected record has been successfully removed.' },
+            'rejected': { icon: 'warning', title: 'Batch Rejected', text: 'The batch status has been moved to Rejected.' },
+
+            // Record Controller (Mobile) mappings
+            'success_drying': { icon: 'success', title: 'Drying Updated', text: 'Drying weights and losses calculated successfully.' },
+
+            // Error handling mappings
+            'output_exceeds_input': { icon: 'error', title: 'Validation Error', text: 'Total output weight cannot exceed raw weight input!' }
+        };
+
+        // 3. Scan the active URL parameters and cleanly trigger the notification if matched
+        for (const [param, config] of Object.entries(notifications)) {
+            if (urlParams.has(param) || urlParams.get('error') === param) {
+                Toast.fire({
+                    icon: config.icon,
+                    title: config.title,
+                    text: config.text
+                });
+
+                // Optional: Clean up the URL query parameters from the browser history bar
+                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+                break;
+            }
+        }
+    });
+</script>
+
+</body>
+</html>

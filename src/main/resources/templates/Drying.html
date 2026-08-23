@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Drying & Quality Controls | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --bg-surface: #ffffff;
+            --border-light: #e2e8f0;
+            --border-focus: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --text-light: #94a3b8;
+
+            --success: #059669;
+            --success-bg: #ecfdf5;
+            --danger: #dc2626;
+            --danger-bg: #fef2f2;
+            --warning: #d97706;
+            --warning-bg: #fffbeb;
+
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: var(--font-sans);
+            background: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ─── HEADER ───────────────────────────── */
+        .header {
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-light);
+            padding: 0 40px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 20px; }
+
+        .wordmark {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+        }
+
+        .divider-v { width: 1px; height: 16px; background: var(--border-light); }
+
+        .page-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .live-dot {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .live-dot::before {
+            content: '';
+            display: block; width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .header-right { display: flex; align-items: center; gap: 16px; }
+
+        .notif-btn {
+            position: relative;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 8px;
+            transition: color 0.15s;
+        }
+
+        .notif-btn:hover { color: var(--text-main); }
+
+        .notif-badge {
+            position: absolute; top: 2px; right: 2px;
+            min-width: 16px; height: 16px;
+            border-radius: 8px;
+            background: var(--danger);
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid var(--bg-surface);
+        }
+
+        .btn-back {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .btn-back:hover { color: var(--text-main); }
+
+        /* ─── MAIN CONTENT ──────────────────────── */
+        .main { padding: 32px 40px; max-width: 1600px; margin: 0 auto; }
+
+        /* ─── STATS ROW ─────────────────────────── */
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .stat-item {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 4px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-main);
+            line-height: 1.2;
+        }
+
+        .stat-sub { font-size: 0.75rem; color: var(--text-light); }
+
+        /* ─── TABLE ─────────────────────────────── */
+        .table-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .table-header-bar {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .table-header-bar h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .qa-table { width: 100%; border-collapse: collapse; text-align: left; }
+
+        .qa-table th {
+            padding: 12px 24px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-light);
+            background: #fdfdfd;
+        }
+
+        .qa-table td {
+            padding: 16px 24px;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+        }
+
+        .qa-table tr:last-child td { border-bottom: none; }
+
+        /* Subtle Row State Indicators */
+        .row-approved td:first-child { box-shadow: inset 3px 0 0 var(--success); }
+        .row-critical td:first-child { box-shadow: inset 3px 0 0 var(--danger); background-color: var(--danger-bg); }
+
+        /* ─── TABLE CELLS ───────────────────────── */
+        .lot-tag {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
+        .weights-grid {
+            display: flex;
+            gap: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
+        .weight-cell { display: flex; gap: 4px; }
+        .weight-cell .wlbl { color: var(--text-light); }
+
+        .loss-chip {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--danger);
+        }
+
+        .officer-name { color: var(--text-main); }
+
+        .metrics-row { display: flex; gap: 16px; font-family: var(--font-mono); font-size: 0.8rem; }
+        .metric-item { display: flex; align-items: center; gap: 6px; color: var(--text-main); }
+        .metric-item i { color: var(--text-light); font-size: 0.75rem; }
+        .metric-item.danger { color: var(--danger); font-weight: 500; }
+        .metric-item.danger i { color: var(--danger); }
+
+        /* ─── QA FORM ───────────────────────────── */
+        .qa-form { display: flex; align-items: center; gap: 12px; }
+
+        .rh-input-wrap { position: relative; }
+
+        .rh-input-wrap input {
+            width: 80px;
+            height: 32px;
+            padding: 0 24px 0 10px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .rh-input-wrap input::placeholder { color: var(--text-light); }
+        .rh-input-wrap input:focus { border-color: var(--border-focus); }
+
+        .rh-unit {
+            position: absolute; right: 8px; top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.75rem;
+            color: var(--text-light);
+            pointer-events: none;
+        }
+
+        .status-select {
+            height: 32px;
+            padding: 0 28px 0 10px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            outline: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+        }
+
+        .status-select:focus { border-color: var(--border-focus); }
+
+        .btn-sync {
+            height: 32px;
+            padding: 0 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .btn-sync:hover { background: var(--bg-body); }
+
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+
+<body>
+
+<header class="header">
+    <div class="header-left">
+        <div class="wordmark">LumiLeaf</div>
+        <div class="divider-v"></div>
+        <div class="page-title">Drying QA Control</div>
+        <div class="divider-v"></div>
+        <div class="live-dot">Floor Feed Active</div>
+    </div>
+    <div class="header-right">
+        <button class="notif-btn" onclick="viewNotifications()">
+            <i class="fas fa-bell"></i>
+            <span id="notifBadge" class="notif-badge d-none">0</span>
+        </button>
+        <a th:href="@{/qa_dashboard}" class="btn-back">
+            <i class="fas fa-arrow-left"></i> Overview
+        </a>
+    </div>
+</header>
+
+<main class="main">
+
+    <div class="stats-strip">
+        <div class="stat-item">
+            <span class="stat-label">Total Batches</span>
+            <span class="stat-value" id="statTotal">—</span>
+            <span class="stat-sub">In session</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Approved</span>
+            <span class="stat-value" style="color:var(--success)" id="statApproved">—</span>
+            <span class="stat-sub">Passed QA</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Critical Flags</span>
+            <span class="stat-value" style="color:var(--danger)" id="statCritical">—</span>
+            <span class="stat-sub">Temp <85 or Moisture >4%</span>
+        </div>
+        <div class="stat-item">
+            <span class="stat-label">Pending Sync</span>
+            <span class="stat-value" style="color:var(--warning)" id="statPending">—</span>
+            <span class="stat-sub">Awaiting review</span>
+        </div>
+    </div>
+
+    <div class="table-card">
+        <div class="table-header-bar">
+            <h3>Batch Records</h3>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table class="qa-table">
+                <thead>
+                <tr>
+                    <th>Lot ID</th>
+                    <th>Constituent Weights (kg)</th>
+                    <th>Drying Loss</th>
+                    <th>Officer</th>
+                    <th>Process Metrics</th>
+                    <th>Quality Validation &amp; Sync</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="batch : ${dryingRecords}"
+                    th:classappend="${batch.status == 'APPROVED' ? 'row-approved' : (batch.temperature < 85 or batch.moistureContent > 4.0 ? 'row-critical' : 'row-pending')}">
+
+                    <td>
+                        <span class="lot-tag" th:text="${batch.lotNumber}">EST/11/1</span>
+                    </td>
+
+                    <td>
+                        <div class="weights-grid">
+                            <div class="weight-cell"><span class="wlbl">D1</span> <span th:text="${batch.dryDhool1}">0.0</span></div>
+                            <div class="weight-cell"><span class="wlbl">D2</span> <span th:text="${batch.dryDhool2}">0.0</span></div>
+                            <div class="weight-cell"><span class="wlbl">D3</span> <span th:text="${batch.dryDhool3}">0.0</span></div>
+                            <div class="weight-cell"><span class="wlbl">BB</span> <span th:text="${batch.dryBigBulk}">0.0</span></div>
+                        </div>
+                    </td>
+
+                    <td>
+                        <span class="loss-chip" th:text="${batch.dryingLoss + ' kg'}">0.0 kg</span>
+                    </td>
+
+                    <td>
+                        <span class="officer-name" th:text="${batch.dryingOfficer ?: 'System'}">—</span>
+                    </td>
+
+                    <td>
+                        <div class="metrics-row">
+                            <div class="metric-item" th:classappend="${batch.temperature < 85 ? 'danger' : ''}">
+                                <i class="fas fa-thermometer-half"></i>
+                                <span th:text="${batch.temperature != null ? batch.temperature : '—'}">—</span>°C
+                            </div>
+                            <div class="metric-item" th:classappend="${batch.moistureContent > 4.0 ? 'danger' : ''}">
+                                <i class="fas fa-tint"></i>
+                                <span th:text="${batch.moistureContent != null ? batch.moistureContent : '—'}">—</span>%
+                            </div>
+                        </div>
+                    </td>
+
+                    <td>
+                        <form th:action="@{/qa/approve-batch}" method="post">
+                            <input type="hidden" name="id" th:value="${batch.id}">
+
+                            <div class="rh-input-wrap">
+                                <input type="number" step="0.1" name="humidity"
+                                       class="humidity-input"
+                                       th:value="${batch.humidity != null and batch.humidity > 0 ? batch.humidity : ''}"
+                                       placeholder="RH">
+                                <span class="rh-unit">%</span>
+                            </div>
+
+                            <select name="status" class="status-select">
+                                <option value="PENDING" th:selected="${batch.status == 'PENDING'}">Pending</option>
+                                <option value="APPROVED" th:selected="${batch.status == 'APPROVED'}">Approve</option>
+                                <option value="REJECTED" th:selected="${batch.status == 'REJECTED'}">Reject</option>
+                            </select>
+
+                            <button type="button" class="btn-sync" th:data-lot="${batch.lotNumber}">
+                                Sync
+                            </button>
+                        </form>
+                    </td>
+
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    /* ── Sync button validation ── */
+    document.querySelectorAll('.btn-sync').forEach(button => {
+        button.addEventListener('click', function () {
+            const form = this.closest('.qa-sync-form');
+            const humidityInput = form.querySelector('.humidity-input').value;
+            const statusSelect = form.querySelector('.status-select').value;
+            const lotNumber = this.getAttribute('data-lot');
+            const humidity = parseFloat(humidityInput);
+
+            if (statusSelect === 'APPROVED') {
+                if (isNaN(humidity) || humidity <= 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Humidity Required',
+                        text: `Batch ${lotNumber} cannot be approved without a valid Room Humidity reading.`,
+                        confirmButtonColor: '#0f172a'
+                    });
+                    return;
+                }
+                if (humidity > 100) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Invalid Reading',
+                        text: `${humidity}% humidity is not physically possible. Please verify the reading.`,
+                        confirmButtonColor: '#0f172a'
+                    });
+                    return;
+                }
+            }
+            form.submit();
+        });
+    });
+
+    /* ── Live stats from rows ── */
+/* ── Live stats from rows ── */
+function computeStats() {
+    const rows = document.querySelectorAll('.qa-table tbody tr');
+    let approved = 0, critical = 0, pending = 0;
+
+    rows.forEach(r => {
+        // 1. Count critical process metrics independently
+        if (r.classList.contains('row-critical')) {
+            critical++;
+        }
+
+        // 2. Count exact status based on the dropdown value
+        const statusSelect = r.querySelector('.status-select');
+        if (statusSelect) {
+            if (statusSelect.value === 'APPROVED') {
+                approved++;
+            } else if (statusSelect.value === 'PENDING') {
+                pending++;
+            }
+        }
+    });
+
+    document.getElementById('statTotal').textContent = rows.length;
+    document.getElementById('statApproved').textContent = approved;
+    document.getElementById('statCritical').textContent = critical;
+    document.getElementById('statPending').textContent = pending;
+}
+computeStats();
+
+    /* ── Notifications ── */
+    let liveCounts = { weighing: 0, withering: 0, rolling: 0, drying: 0 };
+
+    function checkNotifications() {
+        fetch('/api/qa/record-counts')
+            .then(res => res.json())
+            .then(newCounts => {
+                liveCounts = newCounts;
+                const lastSeen = JSON.parse(localStorage.getItem('qa_last_seen_counts'));
+                if (!lastSeen) { localStorage.setItem('qa_last_seen_counts', JSON.stringify(newCounts)); return; }
+                const totalNew = Math.max(0, newCounts.weighing - (lastSeen.weighing || 0)) +
+                                 Math.max(0, newCounts.withering - (lastSeen.withering || 0)) +
+                                 Math.max(0, newCounts.rolling - (lastSeen.rolling || 0)) +
+                                 Math.max(0, newCounts.drying - (lastSeen.drying || 0));
+                const badge = document.getElementById('notifBadge');
+                if (totalNew > 0) { badge.textContent = totalNew; badge.classList.remove('d-none'); }
+                else { badge.classList.add('d-none'); }
+            }).catch(() => {});
+    }
+
+    function viewNotifications() {
+        const lastSeen = JSON.parse(localStorage.getItem('qa_last_seen_counts')) || liveCounts;
+        const nW  = Math.max(0, liveCounts.weighing  - (lastSeen.weighing  || 0));
+        const nWi = Math.max(0, liveCounts.withering - (lastSeen.withering || 0));
+        const nR  = Math.max(0, liveCounts.rolling   - (lastSeen.rolling   || 0));
+        const nD  = Math.max(0, liveCounts.drying    - (lastSeen.drying    || 0));
+
+        let html = '';
+        if (nW  > 0) html += `<div class="mb-2"><strong>${nW}</strong> new weighing records</div>`;
+        if (nWi > 0) html += `<div class="mb-2"><strong>${nWi}</strong> new withering records</div>`;
+        if (nR  > 0) html += `<div class="mb-2"><strong>${nR}</strong> new rolling records</div>`;
+        if (nD  > 0) html += `<div class="mb-2"><strong>${nD}</strong> new drying records</div>`;
+
+        if (!html) {
+            Swal.fire({ icon: 'info', title: 'All caught up', text: 'No new records since last check.', timer: 1800, showConfirmButton: false });
+            return;
+        }
+
+        Swal.fire({
+            title: 'Factory Feed',
+            html: `<div class="text-start mt-2">${html}</div>`,
+            icon: 'success',
+            confirmButtonColor: '#0f172a', confirmButtonText: 'Mark as Read'
+        }).then(() => {
+            localStorage.setItem('qa_last_seen_counts', JSON.stringify(liveCounts));
+            location.reload();
+        });
+    }
+
+    checkNotifications();
+    setInterval(checkNotifications, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>View Records</title>
+
+    <style>
+        body{
+            margin:0;
+            font-family:Arial;
+            background:#e5e5e5;
+        }
+
+        .container{
+            padding:40px;
+        }
+
+        .title{
+            text-align:center;
+            margin-bottom:40px;
+        }
+
+        .card-container{
+            display:grid;
+            grid-template-columns:repeat(2,1fr);
+            gap:30px;
+        }
+
+        .card{
+            background:white;
+            padding:40px;
+            border-radius:15px;
+            text-align:center;
+            font-size:22px;
+            box-shadow:0px 4px 10px rgba(0,0,0,0.2);
+            cursor:pointer;
+            transition:0.3s;
+        }
+
+        .card:hover{
+            transform:scale(1.05);
+            background:#9EBBB1;
+        }
+    </style>
+</head>
+
+<body>
+<a href="/waiting">
+    <div class="card">Waiting Point</div>
+</a>
+
+<a href="/withering">
+    <div class="card">Withering</div>
+</a>
+
+<a href="/rolling">
+    <div class="card">Rolling</div>
+</a>
+
+<a href="/drying">
+    <div class="card">Drying Output</div>
+</a>
+
+<div class="container">
+
+    <h1 class="title">QA Process Records</h1>
+
+    <div class="card-container">
+
+        <a href="/waiting">
+            <div class="card">
+                Waiting Point
+            </div>
+        </a>
+
+        <a href="/withering">
+            <div class="card">
+                Withering
+            </div>
+        </a>
+
+        <a href="/rolling">
+            <div class="card">
+                Rolling
+            </div>
+        </a>
+
+        <a href="/drying">
+            <div class="card">
+                Drying Output
+            </div>
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>

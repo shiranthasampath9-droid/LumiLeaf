@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>QA Dashboard | LumiLeaf Analytics</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root {
+            --primary-green: #3FA17A;
+            --sidebar-width: 280px;
+            --bg-body: radial-gradient(circle at top right, #1e293b, #0f172a);
+            --bg-nav: rgba(15, 23, 42, 0.9);
+            --bg-sidebar: rgba(15, 23, 42, 0.8);
+            --bg-card: rgba(255, 255, 255, 0.02);
+            --bg-stat: rgba(0, 0, 0, 0.2);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --glass-white: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        [data-theme="light"] {
+            --bg-body: #f8fafc;
+            --bg-nav: rgba(255, 255, 255, 0.9);
+            --bg-sidebar: rgba(255, 255, 255, 0.9);
+            --bg-card: #ffffff;
+            --bg-stat: #f1f5f9;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --glass-white: #e2e8f0;
+            --glass-border: rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg-body);
+            min-height: 100vh;
+            color: var(--text-main);
+            transition: all 0.3s ease;
+        }
+
+        /* NAVBAR */
+        .navbar {
+            height: 70px;
+            background: var(--bg-nav);
+            backdrop-filter: blur(14px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--glass-white);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            transition: 0.2s;
+        }
+
+        .icon-btn:hover { background: var(--primary-green); color: white; }
+
+        .notif-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: #e74c3c;
+            border-radius: 50%;
+            border: 2px solid var(--bg-nav);
+        }
+
+        /* SIDEBAR */
+   /* SIDEBAR */
+.sidebar {
+    width: var(--sidebar-width);
+    height: calc(100vh - 70px); /* Replaces fit-content to fill the whole screen */
+    background: var(--bg-sidebar);
+    backdrop-filter: blur(20px);
+    position: fixed;
+    top: 70px;
+    left: 0;
+    padding: 20px 15px; /* Slightly increased padding */
+    border-right: 1px solid var(--glass-border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Handles spacing evenly instead of margins */
+}
+
+/* Ensure the inner content doesn't create extra unwanted margins */
+.sidebar > *:first-child {
+    margin-top: 0;
+}
+.sidebar > *:last-child {
+    margin-bottom: 0; /* Removes the extra space specifically under the last tab */
+}
+
+/* Custom thin scrollbar */
+.sidebar::-webkit-scrollbar {
+    width: 5px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
+
+/* Ensure the inner content doesn't create extra margins */
+.sidebar > *:first-child {
+    margin-top: 0;
+}
+.sidebar > *:last-child {
+    margin-bottom: 14px;
+}
+
+        /* Custom thin scrollbar */
+        .sidebar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+     .menu-btn {
+    padding: 13px 16px; /* Increased from 9px to make tabs taller */
+    border-radius: 10px;
+    color: var(--text-muted);
+    background: var(--glass-white);
+    border: 1px solid var(--glass-border);
+    transition: all .25s ease;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Increased from 10px to give icons more breathing room */
+    text-decoration: none;
+    font-size: 14px; /* Increased from 13px */
+    margin-bottom: 0; /* Now controlled by the sidebar's flex gap */
+}
+
+.menu-btn:hover {
+    background: var(--primary-green);
+    transform: translateX(6px);
+    color: white;
+}
+.menu-btn.active {
+    background: var(--primary-green);
+    color: white;
+}
+.btn-blending {
+    background: var(--primary-green) !important;
+    color: white !important;
+}
+
+        .menu-btn:hover { background: var(--primary-green); transform: translateX(6px); color: white; }
+        .menu-btn.active { background: var(--primary-green); color: white; }
+        .btn-blending { background: var(--primary-green) !important; color: white !important; }
+
+        /* MAIN CONTENT AREA */
+        .main {
+            margin-left: var(--sidebar-width);
+            margin-top: 70px;
+            padding: 40px;
+        }
+
+        .live-badge {
+            background: var(--glass-white);
+            color: #2ecc71;
+            padding: 10px 18px;
+            border-radius: 30px;
+            border: 1px solid var(--glass-border);
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .grade-row-container {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        }
+
+        .grade-header {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--primary-green);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .triple-panel {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .triple-panel {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+@media (max-width: 900px) {
+    .triple-panel {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .triple-panel {
+        grid-template-columns: 1fr;
+    }
+}
+
+        .stat-section {
+            background: var(--bg-stat);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 24px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-value {
+            font-size: 2.4rem;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1;
+        }
+
+        .stat-unit {
+            font-size: 1rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .indicator {
+            margin-top: 15px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .text-rise { color: #2ecc71; }
+        .text-reduce { color: #e74c3c; }
+        .text-stock { color: #3498db; }
+
+        .logout {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #d94343;
+            color: white;
+            padding: 14px 26px;
+            border-radius: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: .25s;
+            z-index: 1000;
+        }
+        .logout:hover { background: #b93838; color: white; }
+    </style>
+</head>
+
+<body data-theme="dark">
+
+<div class="navbar">
+    <div>
+        <span style="font-weight:800; font-size: 22px; color: var(--text-main);">LUMILEAF</span>
+        <span style="font-weight:300;margin-left:10px;font-size:15px;opacity:.8; color: var(--text-main);">| QUALITY ASSURANCE</span>
+    </div>
+
+    <div class="nav-right">
+        <a th:href="@{/notifications}" class="btn position-relative border-0 bg-transparent" style="color: #a0aec0;">
+            <i class="fas fa-bell fs-5"></i>
+            <span id="notifBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="font-size: 0.6rem;">
+        0
+    </span>
+        </a>
+
+        <div class="icon-btn" id="themeToggle">
+            <i class="fas fa-moon" id="themeIcon"></i>
+        </div>
+    </div>
+</div>
+
+<div class="sidebar">
+    <a th:href="@{/supplier}" class="menu-btn"><i class="fas fa-truck-fast"></i> SUPPLIERS</a>
+    <a th:href="@{/waiting}" class="menu-btn btn-waiting"><i class="fas fa-hourglass-half"></i> WEIGHING POINT</a>
+    <a th:href="@{/qa-withering-records}" class="menu-btn btn-process"><i class="fas fa-wind"></i> WITHERING DATA</a>
+    <a th:href="@{/qa-rolling-records}" class="menu-btn btn-process"><i class="fas fa-arrows-rotate"></i> ROLLING DATA</a>
+    <a th:href="@{/qa-drying-records}" class="menu-btn btn-process"><i class="fas fa-fire-burner"></i> DRYING DATA</a>
+    <a th:href="@{/mass-production}" class="menu-btn btn-production"><i class="fas fa-chart-line"></i> MASS PRODUCTION</a>
+    <a th:href="@{/production}" class="menu-btn"><i class="fas fa-industry"></i> PRODUCTION</a>
+    <a th:href="@{/stock-production}" class="menu-btn">
+        <i class="fas fa-boxes-stacked"></i> STOCK PRODUCTION
+    </a>
+    <a th:href="@{/blending}" class="menu-btn btn-blending mt-3"><i class="fas fa-mortar-pestle"></i> BLENDING MGMT</a>
+    <a th:href="@{/qa/blend-balance}" class="menu-btn"><i class="fas fa-scale-balanced"></i> BLEND BALANCE</a>
+    <a th:href="@{/transactions}" class="menu-btn"><i class="fas fa-exchange-alt"></i> TRANSACTIONS</a>
+</div>
+
+<div class="main">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+        </div>
+
+    </div>
+
+    <div th:each="grade : ${gradesList}">
+        <div class="grade-row-container">
+            <div class="grade-header">
+                <i class="fas fa-leaf"></i>
+                <span th:text="${grade.name} + ' TEA GRADE'">GRADE NAME</span>
+            </div>
+            <div class="triple-panel">
+                <div class="stat-section">
+                    <div class="stat-label"><i class="fas fa-plus-circle text-rise"></i> Grade Balance</div>
+                    <div class="stat-value">
+                        <span class="count-up" th:text="${grade.freshStock != null ? #numbers.formatDecimal(grade.freshStock, 1, 2) : '0.00'}">0.00</span>
+                        <span class="stat-unit">KG</span>
+                    </div>
+                    <div class="indicator text-rise"><i class="fas fa-caret-up"></i> FROM PRODUCTION</div>
+                </div>
+
+                <div class="stat-section">
+                    <div class="stat-label"><i class="fas fa-minus-circle text-reduce"></i> Blending Balance</div>
+                    <div class="stat-value">
+                        <span class="count-up" th:text="${grade.remnantStock != null ? #numbers.formatDecimal(grade.remnantStock, 1, 2) : '0.00'}">0.00</span>
+                        <span class="stat-unit">KG</span>
+                    </div>
+                    <div class="indicator text-reduce"><i class="fas fa-caret-down"></i> REMAINING REMNANTS</div>
+                </div>
+
+                <div class="stat-section" style="border-color: rgba(63, 161, 122, 0.3);">
+                    <div class="stat-label"><i class="fas fa-warehouse text-stock"></i> Total Stock</div>
+                    <div class="stat-value">
+                        <span class="count-up" th:text="${grade.totalStock != null ? #numbers.formatDecimal(grade.totalStock, 1, 2) : '0.00'}">0.00</span>
+                        <span class="stat-unit">KG</span>
+                    </div>
+                    <div class="indicator text-stock"><i class="fas fa-check-circle"></i> NET: OVERALL INVENTORY</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a th:href="@{/logout}" class="logout"><i class="fas fa-power-off me-2"></i> SIGN OUT</a>
+
+<script>
+    // Logic remains identical to previous version
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const body = document.body;
+
+    themeToggle.addEventListener('click', () => {
+        const isDark = body.getAttribute('data-theme') === 'dark';
+        body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+        themeIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+        localStorage.setItem('lumi-theme', isDark ? 'light' : 'dark');
+    });
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const savedTheme = localStorage.getItem('lumi-theme') || 'dark';
+    body.setAttribute('data-theme', savedTheme);
+    themeIcon.className = savedTheme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+    checkNotifications();
+    setInterval(checkNotifications, 60000);
+
+    // Issue 8: Automated System Toast Notification Listener Loop
+    const urlParams = new URLSearchParams(window.location.search);
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3500,
+        timerProgressBar: true
+    });
+
+    if (urlParams.has('reset_success')) {
+        Toast.fire({ icon: 'success', title: 'Inventory Cleaned', text: 'All factory batch balances reset successfully.' });
+    } else if (urlParams.has('reset_cancelled')) {
+        Toast.fire({ icon: 'info', title: 'Cancelled', text: 'Reset operation was safely aborted.' });
+    }
+
+    document.querySelectorAll('.count-up').forEach(el => {
+        const finalValue = parseFloat(el.innerText.replace(/,/g, '')) || 0;
+        let start = 0;
+        const duration = 1200;
+        const step = () => {
+            start += (finalValue / (duration / 16));
+            if(start >= finalValue) {
+                el.innerText = finalValue.toFixed(2);
+            } else {
+                el.innerText = start.toFixed(2);
+                requestAnimationFrame(step);
+            }
+        };
+        step();
+    });
+});
+
+    function checkNotifications() {
+    fetch('/api/qa/notifications/unread-count')
+        .then(res => res.json())
+        .then(data => {
+            const badge = document.getElementById('notifBadge');
+            if (badge) {
+                if (data.unread > 0) {
+                    badge.innerText = data.unread;
+                    badge.classList.remove('d-none');
+                } else {
+                    badge.classList.add('d-none');
+                }
+            }
+        }).catch(err => console.error('Error fetching notification count:', err));
+}
+</script>
+
+</body>
+</html>

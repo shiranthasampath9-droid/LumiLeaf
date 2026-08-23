@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUMILEAF WEIGHING</title>
+    <!-- Modern Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            color: #334155;
+        }
+        .custom-header {
+            background: linear-gradient(135deg, #1a2c24 0%, #234032 100%);
+            color: white;
+            padding: 16px 28px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .header-subtitle { font-size: 0.75rem; letter-spacing: 1px; color: #a3c4b2; }
+
+        .summary-card {
+            background: linear-gradient(135deg, #26523c 0%, #357053 100%);
+            color: white;
+            border-radius: 16px;
+            padding: 24px;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(38, 82, 60, 0.2);
+            border: none;
+        }
+        .summary-title { font-size: 0.8rem; letter-spacing: 1px; color: #a3c4b2; font-weight: 700; }
+        .summary-value { font-size: 2.5rem; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 4px; }
+        .summary-date { font-size: 0.95rem; color: #d1e8dc; margin-top: 5px; font-weight: 500; }
+        .summary-icon { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); font-size: 3.5rem; color: rgba(255, 255, 255, 0.1); }
+
+        .section-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .section-label { font-size: 0.85rem; font-weight: 700; color: #475569; letter-spacing: 0.5px; margin-bottom: 12px; }
+
+        .inventory-block { background-color: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; padding: 20px; margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03); }
+        .inventory-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
+        .inventory-title { font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; }
+        .badge-inventory { background-color: #dcfce7; color: #166534; font-size: 0.75rem; padding: 5px 10px; border-radius: 6px; font-weight: 700; letter-spacing: 0.5px; }
+
+        .btn-process { background-color: #26523c; color: white; font-weight: 600; padding: 8px 20px; border-radius: 8px; transition: all 0.2s; border: none; }
+        .btn-process:hover { background-color: #1e3f2e; color: white; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(38, 82, 60, 0.2); }
+
+        .table-custom th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; }
+        .table-custom td { padding: 10px 4px; color: #334155; }
+        .farmer-id-badge { background-color: #f1f5f9; color: #475569; font-weight: 700; border-radius: 6px; padding: 4px 10px; display: inline-block; font-size: 0.85rem; }
+
+        .finalize-bar { background: rgba(26, 44, 36, 0.95); backdrop-filter: blur(8px); padding: 16px; text-align: center; position: fixed; bottom: 0; left: 0; width: 100%; z-index: 1000; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); border-top: 1px solid #2a473a; }
+        .btn-finalize { background-color: #22c55e; color: white; border: none; padding: 12px 35px; border-radius: 8px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
+        .btn-finalize:hover { background-color: #16a34a; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(34, 197, 94, 0.4); }
+        .btn-finalize:disabled { background-color: #64748b; cursor: not-allowed; transform: none; box-shadow: none; color: #cbd5e1; }
+
+        .global-input-box { background: #f8fafc; padding: 10px 16px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; gap: 12px; align-items: center; }
+        .global-input-box input { border: 1px solid #cbd5e1; border-radius: 6px; }
+        .global-input-box input:focus { border-color: #26523c; box-shadow: 0 0 0 0.2rem rgba(38, 82, 60, 0.15); }
+
+        .officer-required-badge { background-color: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; display: inline-block; margin-left: 8px; transition: opacity 0.3s; }
+        .no-records-message { text-align: center; padding: 40px; color: #64748b; font-size: 1.1rem; }
+        .form-select, .form-control { border-radius: 8px; border-color: #e2e8f0; padding: 10px 14px; }
+        .form-select:focus, .form-control:focus { border-color: #26523c; box-shadow: 0 0 0 0.2rem rgba(38, 82, 60, 0.15); }
+    </style>
+</head>
+<body class="pb-5" th:attr="data-last-officer=${lastOfficer != null ? lastOfficer : ''}, data-last-custom-officer=${lastCustomOfficer != null ? lastCustomOfficer : ''}">
+
+<div class="custom-header d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-3">
+        <i class="bi bi-leaf-fill text-success fs-3"></i>
+        <div>
+            <div class="fw-bold lh-1 text-uppercase fs-5">Lumileaf</div>
+            <div class="header-subtitle text-uppercase mt-1">Smart Weighing System</div>
+        </div>
+    </div>
+    <a href="/logout" class="text-white fs-4 transition" style="opacity: 0.8;"><i class="bi bi-box-arrow-right"></i></a>
+</div>
+
+<div class="container-fluid p-4" style="max-width: 1400px; margin: 0 auto;">
+
+    <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show shadow-sm" role="alert" style="border-radius: 12px; border-color: #bbf7d0;">
+        <i class="bi bi-check-circle-fill me-2"></i> <span th:text="${successMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert" style="border-radius: 12px; border-color: #fecaca;">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i> <span th:text="${errorMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <!-- Daily Intake Summary -->
+    <div class="summary-card mb-4">
+        <div class="summary-title text-uppercase">Daily Intake Summary</div>
+        <div class="summary-value" th:text="${dailyTotal != null ? dailyTotal + ' kg' : '0.00 kg'}">0.00 kg</div>
+        <div class="summary-date"
+             th:text="${displayDate != null ? 'Date: ' + #temporals.format(displayDate, 'yyyy-MM-dd') : 'No pending intake'}">
+            Date: 2026-05-09
+        </div>
+        <i class="bi bi-scale summary-icon"></i>
+    </div>
+
+    <form id="finalizeForm" th:action="@{/api/waiting/finalize}" method="post" autocomplete="off">
+
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="section-card h-100">
+                    <div class="section-label text-uppercase d-flex align-items-center">
+                        Responsible Officer
+                        <span class="officer-required-badge" id="officerRequiredBadge">Required</span>
+                    </div>
+
+                    <select class="form-select" name="officerSelect" id="officerSelect" autocomplete="off">
+                        <option value="" disabled selected>— Please Select Officer —</option>
+                        <option value="Sidath">Sidath</option>
+                        <option value="Other">Other</option>
+                    </select>
+
+                    <input type="text" id="customOfficerName" name="customOfficerName"
+                           class="form-control mt-3 d-none"
+                           placeholder="Type officer name..."
+                           autocomplete="off">
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="section-card h-100">
+                    <div class="section-label text-uppercase">
+                        <i class="bi bi-file-earmark-spreadsheet text-success me-1"></i> Import Organic Records
+                    </div>
+                    <div class="input-group mt-2">
+                        <input type="file" name="file" id="csvFile" accept=".csv" class="form-control" form="uploadForm">
+                        <button class="btn btn-process" type="submit" form="uploadForm">
+                            <i class="bi bi-upload me-1"></i> Process File
+                        </button>
+                    </div>
+                    <div class="text-muted small mt-3">
+                        <i class="bi bi-info-circle-fill text-success me-1"></i> Auto-filters IDs into Estate, Amigos, or LOTFA.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- No Pending Records -->
+        <div id="noPendingRecordsMessage" th:if="${#lists.isEmpty(records)}" class="inventory-block">
+            <div class="no-records-message">
+                <div style="width: 80px; height: 80px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+                    <i class="bi bi-check-lg text-success" style="font-size: 2.5rem;"></i>
+                </div>
+                <h4 class="text-dark fw-bold">All records processed!</h4>
+                <p class="text-muted mt-2 mb-0">Upload a new CSV file to add more records.</p>
+            </div>
+        </div>
+
+        <!-- Amigos Section -->
+        <div th:if="${!#lists.isEmpty(records)}" class="row">
+            <div class="col-12">
+
+                <div class="inventory-block">
+                    <div class="inventory-header">
+                        <div class="inventory-title"><i class="bi bi-briefcase-fill text-secondary"></i><span>Amigos</span><span class="badge-inventory">INVENTORY</span></div>
+                        <div class="global-input-box">
+                            <span class="small fw-bold text-muted text-uppercase me-1"><i class="bi bi-magic me-1"></i>Apply to All:</span>
+                            <input type="text" name="amigosBatch" id="amigosBatch" class="form-control form-control-sm font-monospace" placeholder="Batch (e.g. 112)" autocomplete="off">
+                            <input type="text" name="amigosLot" id="amigosLot" class="form-control form-control-sm font-monospace" placeholder="Lot (e.g. 112-3)" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-borderless table-custom align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th style="width: 12%;">Date</th>
+                                <th style="width: 10%;">Farmer ID</th>
+                                <th style="width: 28%;">Route</th>
+                                <th style="width: 10%;">Gross</th>
+                                <th style="width: 6%;">Bags</th>
+                                <th style="width: 10%;">Net</th>
+                                <th style="width: 12%;">Batch ID</th>
+                                <th style="width: 12%;">Lot Number</th>
+                            </tr>
+                            </thead>
+                            <tbody id="amigosBody">
+                            <tr th:each="r : ${records}" th:if="${#strings.equalsIgnoreCase(r.section, 'Amigos')}">
+                                <td><input type="date" class="form-control form-control-sm" th:value="${r.date}" readonly style="background-color: #f8fafc;"></td>
+                                <td><span class="farmer-id-badge" th:text="${r.supplierId}"></span></td>
+                                <td><span class="text-muted" th:text="${r.section}"></span></td>
+                                <td><span th:text="${r.grossWeight}"></span></td>
+                                <td><span th:text="${r.bags}"></span></td>
+                                <td><strong th:text="${r.weight}" class="fs-6"></strong></td>
+                                <td>
+                                    <span th:if="${r.batchId != null and r.batchId != ''}" class="badge bg-light text-dark border font-monospace" th:text="${r.batchId}"></span>
+                                    <span th:unless="${r.batchId != null and r.batchId != ''}" class="text-muted small">Pending...</span>
+                                </td>
+                                <td>
+                                    <span th:if="${r.lotNumber != null and r.lotNumber != ''}" class="badge bg-light text-dark border font-monospace" th:text="${r.lotNumber}"></span>
+                                    <span th:unless="${r.lotNumber != null and r.lotNumber != ''}" class="text-muted small">Pending...</span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Estate Section -->
+                <div class="inventory-block">
+                    <div class="inventory-header">
+                        <div class="inventory-title"><i class="bi bi-briefcase-fill text-secondary"></i><span>Estate</span><span class="badge-inventory" style="background-color:#fee2e2; color:#991b1b;">INVENTORY</span></div>
+                        <div class="global-input-box">
+                            <span class="small fw-bold text-muted text-uppercase me-1"><i class="bi bi-magic me-1"></i>Apply to All:</span>
+                            <input type="text" name="estateBatch" id="estateBatch" class="form-control form-control-sm font-monospace" placeholder="Batch (e.g. 112)" autocomplete="off">
+                            <input type="text" name="estateLot" id="estateLot" class="form-control form-control-sm font-monospace" placeholder="Lot (e.g. 112-3)" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-borderless table-custom align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th style="width: 12%;">Date</th>
+                                <th style="width: 10%;">Farmer ID</th>
+                                <th style="width: 28%;">Route</th>
+                                <th style="width: 10%;">Gross</th>
+                                <th style="width: 6%;">Bags</th>
+                                <th style="width: 10%;">Net</th>
+                                <th style="width: 12%;">Batch ID</th>
+                                <th style="width: 12%;">Lot Number</th>
+                            </tr>
+                            </thead>
+                            <tbody id="estateBody">
+                            <tr th:each="r : ${records}" th:if="${#strings.equalsIgnoreCase(r.section, 'Estate')}">
+                                <td><input type="date" class="form-control form-control-sm" th:value="${r.date}" readonly style="background-color: #f8fafc;"></td>
+                                <td><span class="farmer-id-badge" style="background-color: #fee2e2; color: #991b1b;" th:text="${r.supplierId}"></span></td>
+                                <td><span class="text-muted" th:text="${r.section}"></span></td>
+                                <td><span th:text="${r.grossWeight}"></span></td>
+                                <td><span th:text="${r.bags}"></span></td>
+                                <td><strong th:text="${r.weight}" class="fs-6"></strong></td>
+                                <td>
+                                    <span th:if="${r.batchId != null and r.batchId != ''}" class="badge bg-light text-dark border font-monospace" th:text="${r.batchId}"></span>
+                                    <span th:unless="${r.batchId != null and r.batchId != ''}" class="text-muted small">Pending...</span>
+                                </td>
+                                <td>
+                                    <span th:if="${r.lotNumber != null and r.lotNumber != ''}" class="badge bg-light text-dark border font-monospace" th:text="${r.lotNumber}"></span>
+                                    <span th:unless="${r.lotNumber != null and r.lotNumber != ''}" class="text-muted small">Pending...</span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- LOTFA Section -->
+                <div class="inventory-block">
+                    <div class="inventory-header">
+                        <div class="inventory-title"><i class="bi bi-briefcase-fill text-secondary"></i><span>LOTFA</span><span class="badge-inventory" style="background-color:#f3e8ff; color:#6b21a8;">INVENTORY</span></div>
+                        <div class="global-input-box">
+                            <span class="small fw-bold text-muted text-uppercase me-1"><i class="bi bi-magic me-1"></i>Apply to All:</span>
+                            <input type="text" name="lotfaBatch" id="lotfaBatch" class="form-control form-control-sm font-monospace" placeholder="Batch (e.g. 112)" autocomplete="off">
+                            <input type="text" name="lotfaLot" id="lotfaLot" class="form-control form-control-sm font-monospace" placeholder="Lot (e.g. 112-3)" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-borderless table-custom align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th style="width: 12%;">Date</th>
+                                <th style="width: 10%;">Farmer ID</th>
+                                <th style="width: 28%;">Route</th>
+                                <th style="width: 10%;">Gross</th>
+                                <th style="width: 6%;">Bags</th>
+                                <th style="width: 10%;">Net</th>
+                                <th style="width: 12%;">Batch ID</th>
+                                <th style="width: 12%;">Lot Number</th>
+                            </tr>
+                            </thead>
+                            <tbody id="lotfaBody">
+                            <tr th:each="r : ${records}" th:if="${#strings.equalsIgnoreCase(r.section, 'Farmer Group')}">
+                                <td><input type="date" class="form-control form-control-sm" th:value="${r.date}" readonly style="background-color: #f8fafc;"></td>
+                                <td><span class="farmer-id-badge" style="background-color: #f3e8ff; color: #6b21a8;" th:text="${r.supplierId}"></span></td>
+                                <td><span class="text-muted" th:text="${r.section}"></span></td>
+                                <td><span th:text="${r.grossWeight}"></span></td>
+                                <td><span th:text="${r.bags}"></span></td>
+                                <td><strong th:text="${r.weight}" class="fs-6"></strong></td>
+                                <td>
+                                    <span th:if="${r.batchId != null and r.batchId != ''}" class="badge bg-light text-dark border font-monospace" th:text="${r.batchId}"></span>
+                                    <span th:unless="${r.batchId != null and r.batchId != ''}" class="text-muted small">Pending...</span>
+                                </td>
+                                <td>
+                                    <span th:if="${r.lotNumber != null and r.lotNumber != ''}" class="badge bg-light text-dark border font-monospace" th:text="${r.lotNumber}"></span>
+                                    <span th:unless="${r.lotNumber != null and r.lotNumber != ''}" class="text-muted small">Pending...</span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="finalize-bar" th:if="${!#lists.isEmpty(records)}">
+            <!-- Removed the native 'disabled' attribute so users can click it and get the SweetAlert feedback -->
+            <button type="submit" id="finalizeBtn" class="btn-finalize text-uppercase" onclick="return preventDoubleFinal(event)">
+                <i class="bi bi-check-circle-fill me-2"></i> Finalize & Save All Records
+            </button>
+            <div id="finalizeStatus" class="text-white-50 small mt-2 fw-medium"></div>
+        </div>
+    </form>
+
+    <form id="uploadForm" th:action="@{/api/waiting/upload-csv}" method="post" enctype="multipart/form-data" autocomplete="off">
+        <input type="hidden" name="officerSelect" id="uploadOfficerSelect">
+        <input type="hidden" name="customOfficerName" id="uploadCustomOfficerName">
+    </form>
+
+</div>
+
+<script>
+    let isFinalizing = false;
+
+    // Handles the Finalize Button logic with SweetAlert
+    function preventDoubleFinal(event) {
+        event.preventDefault();
+
+        if (isFinalizing) {
+            Swal.fire({ icon: 'info', title: 'Please Wait', text: 'Finalization already in progress...', confirmButtonColor: '#26523c' });
+            return false;
+        }
+
+        // Run validation, pass 'true' to trigger SweetAlert if things are missing
+        if (!updateValidationState(true)) {
+            return false;
+        }
+
+        isFinalizing = true;
+        const btn = document.getElementById("finalizeBtn");
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Processing...';
+
+        document.getElementById("finalizeForm").submit();
+        return true;
+    }
+
+    function toggleOfficerInput() {
+        var selectBox = document.getElementById("officerSelect");
+        var customInput = document.getElementById("customOfficerName");
+
+        if (selectBox.value === "Other") {
+            customInput.classList.remove("d-none");
+            customInput.required = true;
+        } else {
+            customInput.classList.add("d-none");
+            customInput.required = false;
+            customInput.value = "";
+        }
+    }
+
+    function sectionHasPendingRecords(bodyId) {
+        var body = document.getElementById(bodyId);
+        return !!body && body.querySelectorAll("tr").length > 0;
+    }
+
+    // Calculates form validity SILENTLY so no ugly red borders appear on load.
+    // If showWarning is true, it displays a SweetAlert.
+    function updateValidationState(showWarning = false) {
+        var officerSelect = document.getElementById("officerSelect");
+        var customOfficerName = document.getElementById("customOfficerName");
+        var officerBadge = document.getElementById("officerRequiredBadge");
+        var finalizeStatus = document.getElementById("finalizeStatus");
+
+        var missing = [];
+        var isValid = true;
+
+        // Officer check
+        if (!officerSelect.value || officerSelect.value.trim() === "") {
+            isValid = false;
+            missing.push("Responsible Officer");
+            if (officerBadge) officerBadge.style.opacity = "1";
+        } else {
+            if (officerBadge) officerBadge.style.opacity = "0"; // Smoothly hide badge
+
+            if (officerSelect.value === "Other" && (!customOfficerName.value || customOfficerName.value.trim() === "")) {
+                isValid = false;
+                missing.push("Officer Name");
+            }
+        }
+
+        // Batch/Lot checks
+        var sections = [
+            { name: "Amigos", body: "amigosBody", batch: "amigosBatch", lot: "amigosLot" },
+            { name: "Estate", body: "estateBody", batch: "estateBatch", lot: "estateLot" },
+            { name: "LOTFA",  body: "lotfaBody",  batch: "lotfaBatch",  lot: "lotfaLot"  }
+        ];
+
+        sections.forEach(function (section) {
+            if (!sectionHasPendingRecords(section.body)) return;
+            var batchInput = document.getElementById(section.batch);
+            var lotInput = document.getElementById(section.lot);
+
+            if (!batchInput || !batchInput.value.trim()) missing.push(section.name + " Batch");
+            if (!lotInput || !lotInput.value.trim()) missing.push(section.name + " Lot");
+        });
+
+        if (missing.length > 0) isValid = false;
+
+        // Update silent status text at bottom
+        if (finalizeStatus) {
+            finalizeStatus.textContent = isValid ? "✅ Ready to finalize" : "Pending Fields: " + missing.join(", ");
+        }
+
+        // Fire SweetAlert if triggered by button click
+        if (showWarning && !isValid) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Missing Information',
+                text: 'Please complete the following: ' + missing.join(", "),
+                confirmButtonColor: '#26523c',
+                confirmButtonText: 'Got it'
+            });
+        }
+
+        return isValid;
+    }
+
+    // Event listeners to update status text silently as user types
+    document.getElementById("officerSelect").addEventListener("change", function() {
+        toggleOfficerInput();
+        updateValidationState(false);
+    });
+
+    document.getElementById("customOfficerName").addEventListener("input", () => updateValidationState(false));
+
+    ["amigosBatch", "amigosLot", "estateBatch", "estateLot", "lotfaBatch", "lotfaLot"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener("input", () => updateValidationState(false));
+    });
+
+    // Upload Form Intercept - Uses SweetAlert for file and officer checks
+    document.getElementById("uploadForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        var officerSelect = document.getElementById("officerSelect").value;
+        var customOfficerName = document.getElementById("customOfficerName").value;
+        var csvFile = document.getElementById("csvFile");
+
+        if (!officerSelect) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Officer Required',
+                text: 'Please select a Responsible Officer before processing a file.',
+                confirmButtonColor: '#26523c'
+            });
+            return false;
+        }
+
+        if (officerSelect === "Other" && (!customOfficerName || customOfficerName.trim() === "")) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Name Required',
+                text: 'Please type the custom officer name.',
+                confirmButtonColor: '#26523c'
+            });
+            return false;
+        }
+
+        if (!csvFile.value) {
+            Swal.fire({
+                icon: 'info',
+                title: 'No File Selected',
+                text: 'Please choose a CSV file to upload first.',
+                confirmButtonColor: '#26523c'
+            });
+            return false;
+        }
+
+        document.getElementById("uploadOfficerSelect").value = officerSelect;
+        document.getElementById("uploadCustomOfficerName").value = customOfficerName;
+        this.submit();
+    });
+
+    function resetFormState() {
+        var officerSelect = document.getElementById("officerSelect");
+        var customOfficerName = document.getElementById("customOfficerName");
+        var lastOfficer = document.body.getAttribute("data-last-officer") || "";
+        var lastCustomOfficer = document.body.getAttribute("data-last-custom-officer") || "";
+
+        officerSelect.value = lastOfficer;
+        customOfficerName.value = lastCustomOfficer;
+        customOfficerName.classList.toggle("d-none", lastOfficer !== "Other");
+        customOfficerName.required = (lastOfficer === "Other");
+
+        ["amigosBatch", "amigosLot", "estateBatch", "estateLot", "lotfaBatch", "lotfaLot"].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.value = "";
+        });
+
+        var csvFile = document.getElementById("csvFile");
+        if (csvFile) csvFile.value = "";
+
+        isFinalizing = false;
+        var finalizeBtn = document.getElementById("finalizeBtn");
+        if (finalizeBtn) {
+            finalizeBtn.disabled = false;
+            finalizeBtn.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Finalize & Save All Records';
+        }
+
+        updateValidationState(false);
+    }
+
+    window.addEventListener("DOMContentLoaded", resetFormState);
+    window.addEventListener("pageshow", resetFormState);
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

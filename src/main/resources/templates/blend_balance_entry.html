@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Remnants Ledger | LumiLeaf</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        :root { --primary-green: #3FA17A; --secondary-green: #2d7a5c; --glass: rgba(255, 255, 255, 0.8); }
+        body { background: linear-gradient(135deg, #f4f7f9 0%, #e9f0f5 100%); font-family: 'Plus Jakarta Sans', sans-serif; padding: 40px 20px; color: #1e293b; }
+        .form-card { background: var(--glass); backdrop-filter: blur(12px); border-radius: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.08); padding: 40px; max-width: 1400px; margin: auto; border: 1px solid rgba(255, 255, 255, 0.4); }
+        .section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin: 30px 0 20px 0; display: flex; align-items: center; gap: 15px; }
+        .section-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(to right, #e2e8f0, transparent); }
+        .grid-inputs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+        .input-box { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; }
+
+        /* Removed number scroll arrows */
+        .grade-input { width: 100%; border: none; font-size: 14px; font-weight: 700; outline: none; }
+        .grade-input::-webkit-inner-spin-button, .grade-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .grade-input[type=number] { -moz-appearance: textfield; }
+
+        .history-section { background: rgba(255, 255, 255, 0.5); border-radius: 24px; padding: 24px; margin-top: 50px; }
+        .modern-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .modern-table tbody tr { background: white; transition: transform 0.2s; }
+        .modern-table td { padding: 12px; font-size: 13px; vertical-align: middle; }
+        .badge-total { background: rgba(63, 161, 122, 0.1); color: var(--primary-green); padding: 6px 12px; border-radius: 8px; font-weight: 800; }
+        option:disabled { color: #cbd5e1; }
+    </style>
+</head>
+<body>
+
+<div class="form-card">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h2 class="fw-bold m-0"><i class="fas fa-file-invoice me-2 text-success"></i>Remnants Ledger</h2>
+            <p class="text-muted small">Live inventory tracking for historical tea remnants.</p>
+        </div>
+        <a th:href="@{/qa_dashboard}" class="btn btn-outline-secondary rounded-pill px-4 fw-bold">Dashboard</a>
+    </div>
+
+    <form th:action="@{/qa/save-blend-balance}" method="post" class="mb-5">
+        <div class="section-title">New Entry</div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="input-box" style="height: 100%;">
+                    <label class="small fw-bold text-muted d-block">REFERENCE ID</label>
+                    <input type="text" name="blendId" class="grade-input mt-2" placeholder="e.g. Blend 45" required>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div class="grid-inputs">
+                    <div class="input-box" th:each="g : ${ {'op1','opa','bop1','pekoe','bop','bopf','eb','ffsp','ffexs','dust','bm','bp','refusedTea'} }">
+                        <label class="small fw-bold text-muted d-block" th:text="${g == 'refusedTea' ? 'REFUSE' : #strings.toUpperCase(g)}"></label>
+                        <input type="number" step="0.01" th:name="${g}" class="grade-input" placeholder="0.00">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success w-100 mt-4 rounded-pill py-3 fw-bold">Update History Pool</button>
+    </form>
+
+    <div class="history-section">
+        <div class="d-flex justify-content-between align-items-end mb-4 flex-wrap gap-3">
+            <div class="flex-grow-1" style="max-width: 300px;">
+                <label class="small fw-bold text-muted mb-2">SEARCH REFERENCE</label>
+                <input type="text" id="ledgerSearch" class="form-control rounded-pill px-4" placeholder="Type to filter...">
+            </div>
+
+            <form th:action="@{/qa/blend-balance}" method="get" class="d-flex gap-2 align-items-end">
+                <div>
+                    <label class="small fw-bold text-muted mb-2">FROM</label>
+                    <input type="date" name="startDate" class="form-control rounded-pill">
+                </div>
+                <div>
+                    <label class="small fw-bold text-muted mb-2">TO</label>
+                    <input type="date" name="endDate" class="form-control rounded-pill">
+                </div>
+                <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold">Filter</button>
+            </form>
+
+            <button onclick="exportToPDF()" class="btn btn-dark rounded-pill px-4 fw-bold">
+                <i class="fas fa-file-pdf me-2"></i> Download Audit
+            </button>
+        </div>
+
+        <div class="table-responsive">
+            <table class="modern-table" id="ledgerTable">
+                <thead>
+                <tr class="text-muted small fw-bold">
+                    <th>REFERENCE</th>
+                    <th>OP1</th><th>OPA</th><th>BOP1</th><th>PEKOE</th><th>BOP</th>
+                    <th>BOPF</th><th>EB</th><th>FFSP</th><th>FFEXS</th><th>DUST</th>
+                    <th>BM</th><th>BP</th><th>REFUSE</th><th>LIVE TOTAL</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="row : ${history}" class="ledger-row">
+                    <td class="ref-cell fw-bold" th:text="${row.blendId}"></td>
+                    <td th:each="grade : ${ {'OP1','OPA','BOP1','PEKOE','BOP','BOPF','EB','FFSP','FFEXS','DUST','BM','BP','REFUSEDTEA'} }">
+                        <div class="fw-bold" th:text="${row.weights.get(grade) != null ? row.weights.get(grade) : '0.0'}"></div>
+                        <div class="text-muted" style="font-size: 9px;" th:text="'Orig: ' + ${row.get(grade + '_orig') != null ? row.get(grade + '_orig') : '0.0'}"></div>
+                    </td>
+                    <td><span class="badge-total" th:text="${row.totalCurrent} + ' KG'"></span></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="history-section mt-5">
+    <div class="section-title">Recent Remnant Deductions (Audit Trail)</div>
+    <div class="table-responsive">
+        <table class="modern-table">
+            <thead>
+            <tr class="text-muted small">
+                <th>Date</th>
+                <th>Ref ID (Used From)</th>
+                <th>Grade</th>
+                <th>Quantity Used</th>
+                <th>Finished Good #</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="b : ${allBlends}" th:if="${b.batchNumber != null && #strings.toUpperCase(b.batchNumber).startsWith('BLEND')}">
+                <td th:text="${b.blendingDate}"></td>
+                <td class="fw-bold text-primary" th:text="${b.batchNumber}"></td>
+                <td th:text="${b.grade}"></td>
+                <td class="text-danger" th:text="'- ' + ${b.quantity} + ' kg'"></td>
+                <td th:text="${b.finishedGoodNumber}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const ledgerData = /*[[${history}]]*/ [];
+    const safeLedgerData = ledgerData || [];
+</script>
+
+<script>
+    // --- SEARCH LOGIC ---
+   document.getElementById('ledgerSearch').addEventListener('keyup', function() {
+       const term = this.value.toLowerCase();
+       document.querySelectorAll('.ledger-row').forEach(row => {
+           const txt = row.querySelector('.ref-cell').textContent.toLowerCase();
+           row.style.display = txt.includes(term) ? "" : "none";
+       });
+   });
+
+   // --- PDF EXPORT LOGIC ---
+   function exportToPDF() {
+       const { jsPDF } = window.jspdf;
+       const doc = new jsPDF('l', 'mm', 'a4');
+       doc.setFontSize(18);
+       doc.setTextColor(63, 161, 122);
+       doc.text("LUMILEAF - REMNANT AUDIT REPORT", 14, 15);
+
+       const grades = ['OP1','OPA','BOP1','PEKOE','BOP','BOPF','EB','FFSP','FFEXS','DUST','BM','BP','REFUSEDTEA'];
+       const gradeHeaders = ['OP1','OPA','BOP1','PEKOE','BOP','BOPF','EB','FFSP','FFEXS','DUST','BM','BP','REFUSE'];
+
+       const headRow = ['REFERENCE', ...gradeHeaders, 'LIVE TOTAL'];
+       const head = [headRow];
+
+       const body = safeLedgerData.map(row => {
+           const cells = grades.map(g => {
+               const val = (row.weights && row.weights[g] != null) ? row.weights[g] : 0;
+               return val > 0 ? val.toFixed(1) : '';
+           });
+           return [row.blendId, ...cells, (row.totalCurrent != null ? row.totalCurrent : 0) + ' KG'];
+       });
+
+       doc.autoTable({
+           head: head,
+           body: body,
+           startY: 25,
+           theme: 'grid',
+           headStyles: { fillColor: [63, 161, 122], fontSize: 8 },
+           styles: { fontSize: 7 }
+       });
+
+       doc.save("LumiLeaf_Audit_" + new Date().toISOString().split('T')[0] + ".pdf");
+   }
+
+   // --- THE STOCK UPDATER (Merged & Simplified) ---
+   async function refreshStockData(val) {
+       console.log("System Triggered: Fetching stock for " + val);
+
+       if (!val) return;
+
+       try {
+           const response = await fetch('/blending/data/' + val);
+           if (!response.ok) throw new Error('Server error: ' + response.status);
+
+           const data = await response.json();
+           console.log("Success Data:", data);
+
+           const bSelect = document.querySelector('select[name="batchNumber"]');
+           const rSelect = document.querySelector('select[name="blendingNumber"]');
+
+           if (bSelect) {
+               let html = '<option value="FROM-REMNANTS">FROM-REMNANTS (General Stock)</option>';
+               if (data.batchStock) {
+                   Object.entries(data.batchStock).forEach(([lot, qty]) => {
+                       html += `<option value="${lot}">${lot} (${qty}kg available)</option>`;
+                   });
+               }
+               bSelect.innerHTML = html;
+           }
+
+           if (rSelect) {
+               let html = '<option value="">-- No Balance Selected --</option>';
+               if (data.remnantBalances) {
+                   Object.entries(data.remnantBalances).forEach(([id, qty]) => {
+                       html += `<option value="${id}">${id} (${qty}kg available)</option>`;
+                   });
+               }
+               rSelect.innerHTML = html;
+           }
+       } catch (err) {
+           console.error("Fetch Error:", err);
+       }
+   }
+
+   // --- GLOBAL EVENT LISTENERS ---
+   document.addEventListener('change', function (e) {
+       if (e.target && e.target.name === 'grade') {
+           refreshStockData(e.target.value);
+       }
+       if (e.target && e.target.name === 'blendingNumber' && e.target.value !== '') {
+           const batchSelect = document.querySelector('select[name="batchNumber"]');
+           if (batchSelect) batchSelect.value = "FROM-REMNANTS";
+       }
+   });
+</script>
+</body>
+</html>
