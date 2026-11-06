@@ -573,7 +573,6 @@
         </div>
         <div class="card-inner">
             <form th:action="@{/rolling/save}" method="post" id="rollingForm" onsubmit="return validateRolling(event)">
-
                 <input type="hidden" name="selectedDate" id="hiddenSelectedDate" th:value="${selectedDate}">
 
                 <div class="field">
@@ -784,6 +783,7 @@
 </div>
 
 <script>
+
     /* ── CUSTOM OFFICER TOGGLE LOGIC ── */
 // Prevent mouse wheel from changing number inputs
 document.addEventListener('wheel', function (e) {
