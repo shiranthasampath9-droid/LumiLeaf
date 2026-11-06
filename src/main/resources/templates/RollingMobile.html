@@ -865,25 +865,7 @@ function toggleCustomOfficer() {
         document.getElementById('dispProdBatch').value = prodBatch;
         document.getElementById('dispProdLot').value = prodLot;
 
-        // 3. Dynamic Officer Auto-Fill (Handles custom names seamlessly)
-        let assignedOfficer = s.selectedOptions[0].getAttribute('data-officer');
-        if (assignedOfficer) {
-            let selectElement = document.getElementById('officerSelect');
-            let optionsArray = Array.from(selectElement.options).map(opt => opt.value);
-
-            if (optionsArray.includes(assignedOfficer)) {
-                selectElement.value = assignedOfficer;
-                toggleCustomOfficer();
-            } else {
-                // If it's a name not in the default dropdown, trigger the custom input!
-                selectElement.value = 'Other';
-                toggleCustomOfficer();
-                document.getElementById('customOfficerName').value = assignedOfficer;
-            }
-        } else {
-            document.getElementById('officerSelect').value = '';
-            toggleCustomOfficer();
-        }
+              // 3. Officer is chosen manually (rolling officer), not taken from the withering record
 
         document.getElementById('batchHeader').innerText = s.value;
 
