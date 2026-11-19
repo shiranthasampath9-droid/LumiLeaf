@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
@@ -47,7 +48,9 @@
             <a th:href="@{/qa_dashboard}" class="btn btn-outline-success btn-back">
                 <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
             </a>
-            <!-- Changed btn-warning to btn-success for a green button -->
+            <button type="button" class="btn btn-success btn-back" data-bs-toggle="modal" data-bs-target="#addMissingRecordModal">
+                <i class="fas fa-plus me-2"></i> Add Missing Record
+            </button>
         </div>
     </div>
 
@@ -118,10 +121,12 @@
                             <a th:href="@{'/waiting/edit/' + ${row.record.id}}" class="text-primary me-3" title="Edit Record">
                                 <i class="fas fa-edit"></i>
                             </a>
-                            <a th:href="@{'/waiting/delete/' + ${row.record.id}}" class="text-danger" title="Delete Record"
-                               onclick="return confirm('Are you sure you want to delete this record?');">
-                                <i class="fas fa-trash-alt"></i>
-                            </a>
+                            <form th:action="@{'/waiting/delete/' + ${row.record.id}}" method="post" class="d-inline"
+                                  onsubmit="return confirm('Are you sure you want to delete this record?');">
+                                <button type="submit" class="btn btn-link text-danger p-0" title="Delete Record">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
 

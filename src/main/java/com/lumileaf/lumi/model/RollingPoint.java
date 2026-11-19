@@ -63,6 +63,13 @@ public class RollingPoint {
     // ✅ FIX #4: Add weather condition field
     @Column(name = "weather_condition")
     private String weatherCondition;
+    private Double inletTemperature;
+    private Double outletTemperature;
+
+    public Double getInletTemperature() { return inletTemperature; }
+    public void setInletTemperature(Double inletTemperature) { this.inletTemperature = inletTemperature; }
+    public Double getOutletTemperature() { return outletTemperature; }
+    public void setOutletTemperature(Double outletTemperature) { this.outletTemperature = outletTemperature; }
 
     public RollingPoint() {}
 

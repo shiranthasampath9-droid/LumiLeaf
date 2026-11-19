@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 import com.lumileaf.lumi.model.Admin;
 import com.lumileaf.lumi.repository.AdminRepository;
 import com.lumileaf.lumi.service.PermissionService;
-
+import com.lumileaf.lumi.util.BatchIdUtils;
 @Controller
 public class QAController {
 
@@ -268,6 +268,22 @@ public class QAController {
             default -> null;
         };
     }
+    private void resyncWitheringIntake(String batchId) {
+        if (batchId == null || batchId.isBlank()) return;
+        String target = batchId.trim();
+        List<WitheringPoint> rows = witheringRepo.findAll().stream()
+                .filter(w -> w.getBatchId() != null && w.getBatchId().trim().equals(target))
+                .collect(Collectors.toList());
+        if (rows.isEmpty()) return;
+        double intake = round(waitingRepo.findByBatchId(target).stream()
+                .mapToDouble(r -> r.getWeight() != null ? r.getWeight() : 0.0).sum());
+        for (WitheringPoint w : rows) {
+            w.setIntakeWeight(intake);
+            w.setIntakeAdjustedAt(LocalDateTime.now());
+            w.setIntakeAdjustedBy("QA weighing edit");
+            witheringRepo.save(w);
+        }
+    }
 
     private Double getRawBalanceValue(BlendBalance balance, String grade) {
         if (balance == null || grade == null) return null;
@@ -450,6 +466,9 @@ public class QAController {
         try {
             ProductionBatch batch = productionRepo.findById(id)
                     .orElseThrow(() -> new IllegalArgumentException("Batch ID not found: " + id));
+            if ("APPROVED".equalsIgnoreCase(status) && !"DRYING".equals(batch.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Drying data must be submitted before approval."));
+            }
             if ("APPROVED".equalsIgnoreCase(status)) {
                 if (humidity == null || humidity <= 0) {
                     return ResponseEntity.badRequest().body(Map.of("error", "Validation Failed: Valid environmental humidity required for approval."));
@@ -576,7 +595,7 @@ public class QAController {
     }
 
 
-    @GetMapping("/waiting/delete/{id}")
+    @PostMapping("/waiting/delete/{id}")
     public String deleteWaitingRecord(@PathVariable Long id, HttpSession session, RedirectAttributes ra) {
         if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
         Admin admin = adminRepo.findByUsername(session.getAttribute("username").toString());
@@ -584,9 +603,17 @@ public class QAController {
             ra.addFlashAttribute("error", "You don't have permission to delete weighing records.");
             return "redirect:/waiting";
         }
+        WaitingPoint rec = waitingRepo.findById(id).orElse(null);
+        if (rec == null) {
+            ra.addFlashAttribute("error", "Record not found.");
+            return "redirect:/waiting";
+        }
+        String batchId = rec.getBatchId();
         waitingRepo.deleteById(id);
+        resyncWitheringIntake(batchId);
         return "redirect:/waiting?deleted=true";
     }
+
     @GetMapping("/waiting/edit/{id}")
     public String editWaitingRecordForm(@PathVariable Long id, HttpSession session, Model model) {
         if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
@@ -601,6 +628,10 @@ public class QAController {
                                       HttpSession session,
                                       RedirectAttributes ra) {
         if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
+        if (submitted.getId() == null) {
+            ra.addFlashAttribute("error", "Record id missing. Please reopen the record and try again.");
+            return "redirect:/waiting";
+        }
         Admin admin = adminRepo.findByUsername(session.getAttribute("username").toString());
         if (admin == null || !permissionService.hasPermission(admin, "QA_EDIT_WEIGHING_RECORD")) {
             ra.addFlashAttribute("error", "You don't have permission to edit weighing records.");
@@ -620,6 +651,8 @@ public class QAController {
         double oldWeight = existing.getWeight() != null ? existing.getWeight() : 0.0;
         existing.setWeight(submitted.getWeight());
         waitingRepo.save(existing);
+        resyncWitheringIntake(existing.getBatchId());
+        resyncWitheringIntake(existing.getBatchId());
 
         NotificationEvent event = new NotificationEvent();
         event.setEventType("WEIGHING_CORRECTION");
@@ -704,6 +737,7 @@ public class QAController {
         wp.setFinalizedAt(LocalDateTime.now());
 
         waitingRepo.save(wp);
+        resyncWitheringIntake(wp.getBatchId());
 
         NotificationEvent event = new NotificationEvent();
         event.setEventType("WEIGHING_BACKFILL");
@@ -1154,6 +1188,415 @@ public class QAController {
 
         return activity;
     }
+    // =================================================================
+    // WITHERING: DELETE / EDIT
+    // =================================================================
+    private boolean isBatchRolled(String batchId) {
+        String target = batchId.trim();
+        return rollingRepo.findAll().stream()
+                .map(RollingPoint::getBatchId).filter(Objects::nonNull)
+                .flatMap(id -> BatchIdUtils.splitSubBatchIds(id).stream())
+                .anyMatch(s -> s.trim().equals(target));
+    }
+    private RollingPoint findRollingContaining(String batchId) {
+        String target = batchId.trim();
+        return rollingRepo.findAll().stream()
+                .filter(r -> r.getBatchId() != null && BatchIdUtils.splitSubBatchIds(r.getBatchId())
+                        .stream().anyMatch(s -> s.trim().equals(target)))
+                .findFirst().orElse(null);
+    }
+
+    @PostMapping("/qa/withering/delete")
+    public String deleteWithering(@RequestParam String batchId, HttpSession session, RedirectAttributes ra) {
+        if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
+        String username = (String) session.getAttribute("username");
+        Admin admin = (username != null) ? adminRepo.findByUsername(username) : null;
+        if (admin == null || !permissionService.hasPermission(admin, "QA_DELETE_WITHERING_RECORD")) {
+            ra.addFlashAttribute("error", "You don't have permission to delete withering records.");
+            return "redirect:/qa-withering-records";
+        }
+        if (isBatchRolled(batchId)) {
+            ra.addFlashAttribute("error", "Batch " + batchId + " has already been rolled. Delete its rolling record first.");
+            return "redirect:/qa-withering-records";
+        }
+        List<WitheringPoint> rows = witheringRepo.findAll().stream()
+                .filter(w -> w.getBatchId() != null && w.getBatchId().trim().equals(batchId.trim()))
+                .collect(Collectors.toList());
+        if (rows.isEmpty()) {
+            ra.addFlashAttribute("error", "No withering record found for batch " + batchId);
+            return "redirect:/qa-withering-records";
+        }
+        witheringRepo.deleteAll(rows);
+
+        NotificationEvent ev = new NotificationEvent();
+        ev.setEventType("WITHERING_DELETED");
+        ev.setMessage(username + " deleted the withering record for batch " + batchId + ". It is available for re-entry.");
+        notificationRepo.save(ev);
+
+        ra.addFlashAttribute("successMessage", "Withering record deleted. Batch " + batchId + " can be processed again.");
+        return "redirect:/qa-withering-records";
+    }
+
+    @PostMapping("/qa/withering/update")
+    public String updateWithering(@RequestParam String batchId,
+                                  @RequestParam String officerName,
+                                  @RequestParam(required = false) String labors,
+                                  @RequestParam(required = false) String startTime,
+                                  @RequestParam(required = false) String endTime,
+                                  @RequestParam Double witheredWeight,
+                                  HttpSession session, RedirectAttributes ra) {
+        if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
+        String username = (String) session.getAttribute("username");
+        Admin admin = (username != null) ? adminRepo.findByUsername(username) : null;
+        if (admin == null || !permissionService.hasPermission(admin, "QA_EDIT_WITHERING_RECORD")) {
+            ra.addFlashAttribute("error", "You don't have permission to edit withering records.");
+            return "redirect:/qa-withering-records";
+        }
+        List<WitheringPoint> rows = witheringRepo.findAll().stream()
+                .filter(w -> w.getBatchId() != null && w.getBatchId().trim().equals(batchId.trim()))
+                .collect(Collectors.toList());
+        if (rows.isEmpty() || witheredWeight == null || witheredWeight <= 0) {
+            ra.addFlashAttribute("error", "Record not found, or weight is not a positive number.");
+            return "redirect:/qa-withering-records";
+        }
+
+        double oldWeight = rows.stream().mapToDouble(w -> w.getWitheredWeight() != null ? w.getWitheredWeight() : 0).sum();
+        boolean weightChanged = Math.abs(round(witheredWeight) - round(oldWeight)) > 0.005;
+        if (weightChanged && isBatchRolled(batchId)) {
+            ra.addFlashAttribute("error", "Withered weight can't be changed after rolling has started. Delete the rolling record first.");
+            return "redirect:/qa-withering-records";
+        }
+        RollingPoint rolling = null;
+        double newRollingIn = 0.0;
+        if (weightChanged) {
+            rolling = findRollingContaining(batchId);
+            if (rolling != null) {
+                String target = batchId.trim();
+                for (String sub : BatchIdUtils.splitSubBatchIds(rolling.getBatchId())) {
+                    final String s = sub.trim();
+                    if (s.equals(target)) {
+                        newRollingIn += witheredWeight;
+                    } else {
+                        newRollingIn += witheringRepo.findAll().stream()
+                                .filter(w -> w.getBatchId() != null && w.getBatchId().trim().equals(s))
+                                .mapToDouble(w -> w.getWitheredWeight() != null ? w.getWitheredWeight() : 0.0)
+                                .sum();
+                    }
+                }
+                newRollingIn = round(newRollingIn);
+                double rolledOut = rolling.getWeightOut() != null ? rolling.getWeightOut() : 0.0;
+                if (newRollingIn < rolledOut) {
+                    ra.addFlashAttribute("error", "Corrected weight would make the rolling Weight In (" + newRollingIn
+                            + " kg) lower than the rolling output already recorded (" + round(rolledOut) + " kg). Fix the rolling record first.");
+                    return "redirect:/qa-withering-records";
+                }
+            }
+        }
+
+        String duration = null;
+        if (startTime != null && !startTime.isBlank() && endTime != null && !endTime.isBlank()) {
+            try {
+                long mins = java.time.temporal.ChronoUnit.MINUTES.between(LocalTime.parse(startTime), LocalTime.parse(endTime));
+                if (mins < 0) mins += 24 * 60;
+                duration = String.format("%dh %02dm", mins / 60, mins % 60);
+            } catch (Exception ignored) { }
+        }
+
+        for (WitheringPoint w : rows) {
+            w.setOfficerName(officerName.trim());
+            w.setLabors(labors);
+            if (duration != null) { w.setStartTime(startTime); w.setEndTime(endTime); w.setTimeTaken(duration); }
+            if (weightChanged) w.setWitheredWeight(round(witheredWeight));
+            witheringRepo.save(w);
+        }
+        if (rolling != null) {
+            rolling.setWeightIn(newRollingIn);
+            rolling.setProcessLoss(round(newRollingIn - (rolling.getWeightOut() != null ? rolling.getWeightOut() : 0.0)));
+            rollingRepo.save(rolling);
+        }
+
+        NotificationEvent ev = new NotificationEvent();
+        ev.setEventType("WITHERING_CORRECTION");
+        ev.setMessage(username + " edited withering record for batch " + batchId
+                + (weightChanged ? ": withered " + round(oldWeight) + "kg -> " + round(witheredWeight) + "kg" : ""));
+        notificationRepo.save(ev);
+
+        ra.addFlashAttribute("successMessage", "Withering record updated.");
+        return "redirect:/qa-withering-records";
+    }
+
+    // =================================================================
+    // ROLLING: DELETE / EDIT
+    // =================================================================
+    private ProductionBatch findProductionFor(RollingPoint rp) {
+        String bid = rp.getBatchId() != null ? rp.getBatchId().trim() : null;
+        ProductionBatch pb = null;
+        if (bid != null && !bid.isEmpty()) {
+            pb = productionRepo.findByProductionIdAndRollingDate(bid, rp.getRollingDate()).orElse(null);
+        }
+        if (pb == null && rp.getLotNumber() != null && !rp.getLotNumber().isBlank()) {
+            pb = productionRepo.findTopByLotNumberAndRollingDateOrderByIdDesc(rp.getLotNumber().trim(), rp.getRollingDate()).orElse(null);
+        }
+        return pb;
+    }
+    private boolean isUsedInBlending(ProductionBatch pb) {
+        if (pb == null) return false;
+        for (String g : ALL_GRADES) {
+            if (Optional.ofNullable(blendingRepo.sumQuantityByBatchAndGrade(pb.getLotNumber(), g)).orElse(0.0) > 0) return true;
+        }
+        return false;
+    }
+
+    private boolean isLocked(ProductionBatch pb) {
+        if (pb == null) return false;
+        if ("APPROVED".equals(pb.getStatus()) || "CONSOLIDATED".equals(pb.getStatus())) return true;
+        for (String g : ALL_GRADES) {
+            if (Optional.ofNullable(blendingRepo.sumQuantityByBatchAndGrade(pb.getLotNumber(), g)).orElse(0.0) > 0) return true;
+        }
+        return false;
+    }
+
+    @PostMapping("/qa/rolling/delete")
+    public String deleteRolling(@RequestParam String batchId, HttpSession session, RedirectAttributes ra) {
+        if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
+        String username = (String) session.getAttribute("username");
+        Admin admin = (username != null) ? adminRepo.findByUsername(username) : null;
+        if (admin == null || !permissionService.hasPermission(admin, "QA_DELETE_ROLLING_RECORD")) {
+            ra.addFlashAttribute("error", "You don't have permission to delete rolling records.");
+            return "redirect:/qa-rolling-records";
+        }
+        RollingPoint rp = rollingRepo.findByBatchId(batchId.trim()).orElse(null);
+        if (rp == null) {
+            ra.addFlashAttribute("error", "No rolling record found for batch " + batchId);
+            return "redirect:/qa-rolling-records";
+        }
+        ProductionBatch pb = findProductionFor(rp);
+        if (isLocked(pb)) {
+            ra.addFlashAttribute("error", "Batch " + batchId + " is approved or already used in blending, so it can't be deleted.");
+            return "redirect:/qa-rolling-records";
+        }
+        if (pb != null) productionRepo.delete(pb);
+        rollingRepo.delete(rp);
+
+        NotificationEvent ev = new NotificationEvent();
+        ev.setEventType("ROLLING_DELETED");
+        ev.setMessage(username + " deleted the rolling record for batch " + batchId
+                + (pb != null ? " and its drying record" : "") + ". The batch is available for rolling again.");
+        notificationRepo.save(ev);
+        ra.addFlashAttribute("successMessage", "Rolling record deleted. Batch " + batchId + " can be rolled again.");
+        return "redirect:/qa-rolling-records";
+    }
+
+    @PostMapping("/qa/rolling/update")
+    public String updateRolling(@RequestParam String batchId, @RequestParam String officerName,
+                                @RequestParam(required = false) Double dhool1, @RequestParam(required = false) Double dhool2,
+                                @RequestParam(required = false) Double dhool3, @RequestParam(required = false) Double bigBulk,
+                                @RequestParam(required = false) Double rainfall,
+                                @RequestParam(required = false) String weatherCondition,
+                                HttpSession session, RedirectAttributes ra) {
+        if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
+        String username = (String) session.getAttribute("username");
+        Admin admin = (username != null) ? adminRepo.findByUsername(username) : null;
+        if (admin == null || !permissionService.hasPermission(admin, "QA_EDIT_ROLLING_RECORD")) {
+            ra.addFlashAttribute("error", "You don't have permission to edit rolling records.");
+            return "redirect:/qa-rolling-records";
+        }
+        RollingPoint rp = rollingRepo.findByBatchId(batchId.trim()).orElse(null);
+        if (rp == null) {
+            ra.addFlashAttribute("error", "No rolling record found for batch " + batchId);
+            return "redirect:/qa-rolling-records";
+        }
+        ProductionBatch pb = findProductionFor(rp);
+        if (isLocked(pb)) {
+            ra.addFlashAttribute("error", "Batch " + batchId + " is approved or already used in blending, so it can't be edited.");
+            return "redirect:/qa-rolling-records";
+        }
+
+        double d1 = dhool1 != null ? dhool1 : 0, d2 = dhool2 != null ? dhool2 : 0;
+        double d3 = dhool3 != null ? dhool3 : 0, bb = bigBulk != null ? bigBulk : 0;
+        double total = d1 + d2 + d3 + bb;
+        double in = rp.getWeightIn() != null ? rp.getWeightIn() : 0;
+        if (total <= 0 || total > in) {
+            ra.addFlashAttribute("error", "Total output must be above 0 and not exceed weight in (" + round(in) + " kg).");
+            return "redirect:/qa-rolling-records";
+        }
+        boolean outputChanged = Math.abs(total - (rp.getWeightOut() != null ? rp.getWeightOut() : 0)) > 0.005;
+        if (rp.isDryingCompleted() && outputChanged) {
+            ra.addFlashAttribute("error", "Drying is already recorded for this batch. Delete the rolling record to re-enter it.");
+            return "redirect:/qa-rolling-records";
+        }
+
+        double oldOut = rp.getWeightOut() != null ? rp.getWeightOut() : 0;
+        rp.setOfficerName(officerName.trim());
+        rp.setRollingOfficer(officerName.trim());
+        rp.setDhool1(round(d1)); rp.setDhool2(round(d2)); rp.setDhool3(round(d3)); rp.setBigBulk(round(bb));
+        rp.setWeightOut(round(total));
+        rp.setProcessLoss(round(in - total));
+        rp.setRainfall(rainfall != null ? rainfall : 0.0);
+        rp.setWeatherCondition(weatherCondition != null && !weatherCondition.isBlank() ? weatherCondition.trim() : "N/A");
+        rollingRepo.save(rp);
+
+        if (pb != null) {
+            pb.setDhool1(rp.getDhool1()); pb.setDhool2(rp.getDhool2());
+            pb.setDhool3(rp.getDhool3()); pb.setBigBulk(rp.getBigBulk());
+            pb.setDryingOfficer(rp.getOfficerName());
+            productionRepo.save(pb);
+        }
+
+        NotificationEvent ev = new NotificationEvent();
+        ev.setEventType("ROLLING_CORRECTION");
+        ev.setMessage(username + " edited rolling record for batch " + batchId
+                + (outputChanged ? ": output " + round(oldOut) + "kg -> " + round(total) + "kg" : ""));
+        notificationRepo.save(ev);
+        ra.addFlashAttribute("successMessage", "Rolling record updated.");
+        return "redirect:/qa-rolling-records";
+    }
+
+    // =================================================================
+    // DRYING: EDIT / RESET
+    // =================================================================
+    private double nz(Double d) { return d != null ? d : 0.0; }
+
+    private RollingPoint findRollingFor(ProductionBatch pb) {
+        if (pb.getProductionId() == null || pb.getProductionId().isBlank()) return null;
+        return rollingRepo.findByBatchId(pb.getProductionId().trim()).orElse(null);
+    }
+
+    @GetMapping("/api/qa/drying/{id}/values")
+    @ResponseBody
+    public ResponseEntity<?> getDryingValues(@PathVariable Long id, HttpSession session) {
+        if (!"QA".equals(session.getAttribute("role"))) return ResponseEntity.status(401).build();
+        ProductionBatch pb = productionRepo.findById(id).orElse(null);
+        RollingPoint rp = (pb != null) ? findRollingFor(pb) : null;
+        if (rp == null) return ResponseEntity.notFound().build();
+        Map<String, Object> v = new HashMap<>();
+        v.put("inlet", rp.getInletTemperature());
+        v.put("outlet", rp.getOutletTemperature());
+        v.put("m1", rp.getMoistureD1()); v.put("m2", rp.getMoistureD2());
+        v.put("m3", rp.getMoistureD3()); v.put("mbb", rp.getMoistureBB());
+        v.put("d1", rp.getDryD1()); v.put("d2", rp.getDryD2());
+        v.put("d3", rp.getDryD3()); v.put("bb", rp.getDryBigBulk());
+        v.put("rolledTotal", round(nz(rp.getDhool1()) + nz(rp.getDhool2()) + nz(rp.getDhool3()) + nz(rp.getBigBulk())));
+        return ResponseEntity.ok(v);
+    }
+
+    @PostMapping("/qa/drying/update")
+    public String updateDrying(@RequestParam Long id, @RequestParam Double inletTemp, @RequestParam Double outletTemp,
+                               @RequestParam Double m1, @RequestParam Double m2,
+                               @RequestParam Double m3, @RequestParam Double mbb,
+                               @RequestParam Double d1, @RequestParam Double d2,
+                               @RequestParam Double d3, @RequestParam Double bb,
+                               HttpSession session, RedirectAttributes ra) {
+        if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
+        String username = (String) session.getAttribute("username");
+        Admin admin = (username != null) ? adminRepo.findByUsername(username) : null;
+        if (admin == null || !permissionService.hasPermission(admin, "QA_EDIT_DRYING_RECORD")) {
+            ra.addFlashAttribute("error", "You don't have permission to edit drying records.");
+            return "redirect:/qa-drying-records";
+        }
+        ProductionBatch pb = productionRepo.findById(id).orElse(null);
+        RollingPoint rp = (pb != null) ? findRollingFor(pb) : null;
+        if (pb == null || rp == null) {
+            ra.addFlashAttribute("error", "Drying record or its rolling record was not found.");
+            return "redirect:/qa-drying-records";
+        }
+
+        boolean moistureBad = false;
+        for (double m : new double[]{m1, m2, m3, mbb}) if (m < 0 || m > 100) moistureBad = true;
+        if (moistureBad) {
+            ra.addFlashAttribute("error", "Moisture values must be between 0 and 100.");
+            return "redirect:/qa-drying-records";
+        }
+        boolean editableStatus = "DRYING".equals(pb.getStatus()) || "APPROVED".equals(pb.getStatus());
+        if (!editableStatus || isUsedInBlending(pb)) {
+            ra.addFlashAttribute("error", "Only batches awaiting approval, or approved but not yet used in blending, can be edited.");
+            return "redirect:/qa-drying-records";
+        }
+        double rolled = nz(rp.getDhool1()) + nz(rp.getDhool2()) + nz(rp.getDhool3()) + nz(rp.getBigBulk());
+        double dryTotal = d1 + d2 + d3 + bb;
+        if (dryTotal > rolled) {
+            ra.addFlashAttribute("error", "Dry output (" + round(dryTotal) + " kg) can't exceed rolled total (" + round(rolled) + " kg).");
+            return "redirect:/qa-drying-records";
+        }
+        double oldDry = nz(rp.getDryD1()) + nz(rp.getDryD2()) + nz(rp.getDryD3()) + nz(rp.getDryBigBulk());
+
+        rp.setInletTemperature(inletTemp);
+        rp.setOutletTemperature(outletTemp);
+        rp.setMoistureD1(round(m1)); rp.setMoistureD2(round(m2));
+        rp.setMoistureD3(round(m3)); rp.setMoistureBB(round(mbb));
+        rp.setMoistureContent(round((m1 + m2 + m3 + mbb) / 4.0));
+        rp.setDryD1(round(d1)); rp.setDryD2(round(d2)); rp.setDryD3(round(d3)); rp.setDryBigBulk(round(bb));
+        rp.setDryLoss(round(rolled - dryTotal));
+        rp.setDryingCompleted(true);
+        rollingRepo.save(rp);
+
+        pb.setInletTemperature(rp.getInletTemperature());
+        pb.setOutletTemperature(rp.getOutletTemperature());
+        pb.setMoistureContent(rp.getMoistureContent());
+        pb.setMoistureD1(rp.getMoistureD1()); pb.setMoistureD2(rp.getMoistureD2());
+        pb.setMoistureD3(rp.getMoistureD3()); pb.setMoistureBB(rp.getMoistureBB());
+        pb.setDryDhool1(rp.getDryD1()); pb.setDryDhool2(rp.getDryD2());
+        pb.setDryDhool3(rp.getDryD3()); pb.setDryBigBulk(rp.getDryBigBulk());
+        pb.setDryingLoss(rp.getDryLoss());
+        productionRepo.save(pb);
+        NotificationEvent ev = new NotificationEvent();
+        ev.setEventType("DRYING_CORRECTION");
+        ev.setMessage(username + " edited drying record for batch " + pb.getProductionId()
+                + ": dry output " + round(oldDry) + "kg -> " + round(dryTotal) + "kg");
+        notificationRepo.save(ev);
+        ra.addFlashAttribute("successMessage", "Drying record updated.");
+        return "redirect:/qa-drying-records";
+    }
+
+    @PostMapping("/qa/drying/reset")
+    public String resetDrying(@RequestParam Long id, HttpSession session, RedirectAttributes ra) {
+        if (!"QA".equals(session.getAttribute("role"))) return "redirect:/login";
+        String username = (String) session.getAttribute("username");
+        Admin admin = (username != null) ? adminRepo.findByUsername(username) : null;
+        if (admin == null || !permissionService.hasPermission(admin, "QA_RESET_DRYING_RECORD")) {
+            ra.addFlashAttribute("error", "You don't have permission to reset drying records.");
+            return "redirect:/qa-drying-records";
+        }
+        ProductionBatch pb = productionRepo.findById(id).orElse(null);
+        RollingPoint rp = (pb != null) ? findRollingFor(pb) : null;
+        if (pb == null || rp == null) {
+            ra.addFlashAttribute("error", "Drying record or its rolling record was not found.");
+            return "redirect:/qa-drying-records";
+        }
+        if (!"DRYING".equals(pb.getStatus()) || isLocked(pb)) {
+            ra.addFlashAttribute("error", "Only batches still awaiting QA approval can be reset.");
+            return "redirect:/qa-drying-records";
+        }
+
+        rp.setTemperature(0.0);
+        rp.setInletTemperature(0.0);
+        rp.setOutletTemperature(0.0);
+        rp.setMoistureD1(0.0); rp.setMoistureD2(0.0); rp.setMoistureD3(0.0); rp.setMoistureBB(0.0);
+        rp.setMoistureContent(0.0);
+        rp.setDryD1(null); rp.setDryD2(null); rp.setDryD3(null); rp.setDryBigBulk(null);
+        rp.setDryLoss(null);
+        rp.setDryingCompleted(false);
+        rollingRepo.save(rp);
+
+        pb.setTemperature(0.0);
+        pb.setTemperature(0.0);
+        pb.setInletTemperature(0.0);
+        pb.setMoistureContent(0.0);
+        pb.setMoistureD1(0.0); pb.setMoistureD2(0.0); pb.setMoistureD3(0.0); pb.setMoistureBB(0.0);
+        pb.setDryDhool1(0.0); pb.setDryDhool2(0.0); pb.setDryDhool3(0.0); pb.setDryBigBulk(0.0);
+        pb.setDryingLoss(0.0);
+        pb.setHumidity(0.0);
+        pb.setStatus("PENDING");
+        productionRepo.save(pb);
+
+        NotificationEvent ev = new NotificationEvent();
+        ev.setEventType("DRYING_RESET");
+        ev.setMessage(username + " reset the drying record for batch " + pb.getProductionId()
+                + ". The rolling officer needs to re-enter drying data.");
+        notificationRepo.save(ev);
+        ra.addFlashAttribute("successMessage", "Drying data cleared. The officer can re-enter it from the Drying tab.");
+        return "redirect:/qa-drying-records";
+    }
 
     // PRIVATE HELPERS
     private double getGradeValueFromBalance(BlendBalance balance, String grade) {
@@ -1190,7 +1633,7 @@ public class QAController {
             case "EB"     -> sp.getEb();
             case "FFSP"   -> sp.getFfsp();
             case "FFEXS"  -> sp.getFfexs();
-            case "BOP1A"  -> sp.getBop1();
+            case "BOP1A"  -> sp.getBop1A();
             case "DUST"   -> sp.getDust();
             case "BM"     -> sp.getBm();
             case "BP"     -> sp.getBp();

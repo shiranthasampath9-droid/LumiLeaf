@@ -48,7 +48,27 @@ public class RollingController {
 
         List<String> officers = Arrays.asList("Vipula");
         model.addAttribute("officersList", officers);
-
+        List<RollingPoint> dryingRecords = rollingRepo.findByRollingDate(selectedDate).stream()
+                .filter(r -> {
+                    ProductionBatch pb = null;
+                    String bid = r.getBatchId() != null ? r.getBatchId().trim() : null;
+                    if (bid != null && !bid.isEmpty()) {
+                        pb = productionRepo.findByProductionIdAndRollingDate(bid, selectedDate).orElse(null);
+                    }
+                    if (pb == null) {
+                        String lotNumber = r.getLotNumber() != null ? r.getLotNumber().trim() : null;
+                        if (lotNumber != null && !lotNumber.isEmpty()) {
+                            pb = productionRepo.findTopByLotNumberAndRollingDateOrderByIdDesc(lotNumber, selectedDate).orElse(null);
+                        }
+                    }
+                    if (pb == null) return true;
+                    return !"APPROVED".equals(pb.getStatus()) && !"CONSOLIDATED".equals(pb.getStatus());
+                })
+                .sorted(Comparator.comparing(RollingPoint::isDryingCompleted))
+                .collect(Collectors.toList());
+        model.addAttribute("dryingRecords", dryingRecords);
+        model.addAttribute("pendingDryingCount",
+                dryingRecords.stream().filter(r -> !r.isDryingCompleted()).count());
         // COMBINED FIX: Break down any combined batchId strings to ensure sub-batches are marked processed
         Set<String> processedBatches = rollingRepo.findAll().stream()
                 .map(RollingPoint::getBatchId)
@@ -104,19 +124,6 @@ public class RollingController {
         }
 
         model.addAttribute("availableBatches", availableBatches);
-
-        List<RollingPoint> dryingRecords = rollingRepo.findByRollingDate(selectedDate).stream()
-                .filter(r -> {
-                    String lotNumber = r.getLotNumber() != null ? r.getLotNumber().trim() : null;
-                    ProductionBatch pb = null;
-                    if (lotNumber != null && !lotNumber.isEmpty()) {
-                        pb = productionRepo.findTopByLotNumberAndRollingDateOrderByIdDesc(lotNumber, selectedDate).orElse(null);
-                    }
-                    if (pb == null) return true;
-                    return !"APPROVED".equals(pb.getStatus()) && !"CONSOLIDATED".equals(pb.getStatus());
-                })
-                .collect(Collectors.toList());
-        model.addAttribute("dryingRecords", dryingRecords);
 
         return "RollingMobile";
     }
@@ -248,13 +255,33 @@ public class RollingController {
             Optional<RollingPoint> opt = rollingRepo.findById(id);
             if (opt.isPresent()) {
                 RollingPoint record = opt.get();
-                record.setTemperature(parseOrZero(allParams.get("temp")));
+
+                String lotNumber = record.getLotNumber() != null ? record.getLotNumber().trim() : null;
+                String prodId = record.getBatchId() != null ? record.getBatchId().trim() : null;
+                LocalDate rollingDate = record.getRollingDate();
+
+                ProductionBatch pb = null;
+                if (prodId != null && !prodId.isEmpty()) {
+                    pb = productionRepo.findByProductionIdAndRollingDate(prodId, rollingDate).orElse(null);
+                }
+                if (pb == null && lotNumber != null && !lotNumber.isEmpty()) {
+                    pb = productionRepo.findTopByLotNumberAndRollingDateOrderByIdDesc(lotNumber, rollingDate).orElse(null);
+                }
+
+                if (pb != null && ("APPROVED".equals(pb.getStatus()) || "CONSOLIDATED".equals(pb.getStatus()))) {
+                    ra.addFlashAttribute("error", "This drying record was approved by QA. Ask QA to make any corrections.");
+                    return "redirect:/mobile/rolling_dashboard?date=" + redirectDate;
+                }
+
+                boolean wasCompleted = record.isDryingCompleted();
+
+                record.setInletTemperature(parseOrZero(allParams.get("inletTemp")));
+                record.setOutletTemperature(parseOrZero(allParams.get("outletTemp")));
 
                 double m1 = parseOrZero(allParams.get("m1"));
                 double m2 = parseOrZero(allParams.get("m2"));
                 double m3 = parseOrZero(allParams.get("m3"));
                 double mbb = parseOrZero(allParams.get("mbb"));
-
                 record.setMoistureD1(round(m1));
                 record.setMoistureD2(round(m2));
                 record.setMoistureD3(round(m3));
@@ -265,7 +292,6 @@ public class RollingController {
                 double d2 = parseOrZero(allParams.get("d2"));
                 double d3 = parseOrZero(allParams.get("d3"));
                 double bb = parseOrZero(allParams.get("bb"));
-
                 record.setDryD1(round(d1));
                 record.setDryD2(round(d2));
                 record.setDryD3(round(d3));
@@ -275,37 +301,17 @@ public class RollingController {
                         (record.getDhool2() != null ? record.getDhool2() : 0) +
                         (record.getDhool3() != null ? record.getDhool3() : 0) +
                         (record.getBigBulk() != null ? record.getBigBulk() : 0);
-
                 record.setDryLoss(round(rollingTotal - (d1 + d2 + d3 + bb)));
                 record.setDryingCompleted(true);
-
                 rollingRepo.save(record);
 
                 NotificationEvent dryEvent = new NotificationEvent();
-                dryEvent.setEventType("DRYING");
-                dryEvent.setMessage("Drying completed for batch " + record.getBatchId() +
-                        (record.getLotNumber() != null ? " (Lot " + record.getLotNumber() + ")" : ""));
+                dryEvent.setEventType(wasCompleted ? "DRYING_UPDATED" : "DRYING");
+                dryEvent.setMessage((wasCompleted ? "Drying updated for batch " : "Drying completed for batch ")
+                        + record.getBatchId()
+                        + (record.getLotNumber() != null ? " (Lot " + record.getLotNumber() + ")" : ""));
                 notificationRepo.save(dryEvent);
 
-                // --- Replacement block (Option B) ---
-                // Prefer productionId (batch id) when available, otherwise fall back to latest lotNumber+rollingDate
-                String lotNumber = record.getLotNumber() != null ? record.getLotNumber().trim() : null;
-                String prodId = record.getBatchId() != null ? record.getBatchId().trim() : null;
-                LocalDate rollingDate = record.getRollingDate();
-
-                ProductionBatch pb = null;
-
-                // 1) Prefer exact productionId + rollingDate
-                if (prodId != null && !prodId.isEmpty()) {
-                    pb = productionRepo.findByProductionIdAndRollingDate(prodId, rollingDate).orElse(null);
-                }
-
-                // 2) Fall back to the most recent record for lotNumber + rollingDate
-                if (pb == null && lotNumber != null && !lotNumber.isEmpty()) {
-                    pb = productionRepo.findTopByLotNumberAndRollingDateOrderByIdDesc(lotNumber, rollingDate).orElse(null);
-                }
-
-                // 3) If still not found, create a new ProductionBatch
                 if (pb == null) {
                     pb = new ProductionBatch();
                     pb.setProductionId(prodId);
@@ -313,9 +319,8 @@ public class RollingController {
                     pb.setProductionDate(LocalDate.now());
                     pb.setRollingDate(rollingDate);
                 }
-
-                // Update fields and save
-                pb.setTemperature(record.getTemperature());
+                pb.setInletTemperature(record.getInletTemperature());
+                pb.setOutletTemperature(record.getOutletTemperature());
                 pb.setMoistureContent(record.getMoistureContent());
                 pb.setMoistureD1(record.getMoistureD1());
                 pb.setMoistureD2(record.getMoistureD2());
@@ -327,9 +332,7 @@ public class RollingController {
                 pb.setDryBigBulk(record.getDryBigBulk());
                 pb.setDryingLoss(record.getDryLoss());
                 pb.setStatus("DRYING");
-
                 productionRepo.save(pb);
-                // --- end replacement block ---
             }
         }
 

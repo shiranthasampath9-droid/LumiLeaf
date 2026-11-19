@@ -436,7 +436,6 @@
         <div class="divider-v"></div>
         <div class="page-title">Drying QA Control</div>
         <div class="divider-v"></div>
-        <div class="live-dot">Floor Feed Active</div>
     </div>
     <div class="header-right">
         <a th:href="@{/qa_dashboard}" class="btn-back">
@@ -446,6 +445,9 @@
 </header>
 
 <main class="main">
+
+    <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
 
     <div class="stats-strip">
         <div class="stat-item">
@@ -461,7 +463,7 @@
         <div class="stat-item">
             <span class="stat-label">Critical Flags</span>
             <span class="stat-value" style="color:var(--danger)" id="statCritical">—</span>
-            <span class="stat-sub">Temp &lt;85 or Moisture &gt;4%</span>
+            <span class="stat-sub">Temp or moisture out of range</span>
         </div>
         <div class="stat-item">
             <span class="stat-label">Pending Sync</span>
@@ -494,17 +496,23 @@
                     <th>Officer</th>
                     <th>Temperature</th>
                     <th>Quality Validation &amp; Sync</th>
+                    <th>Actions</th>
                 </tr>
                 </thead>
                 <tbody id="table-tbody">
                 <tr th:if="${#lists.isEmpty(dryingRecords)}" class="empty-row">
-                    <td colspan="7">
+                    <td colspan="8">
                         <i class="fas fa-wind"></i>
                         No drying batches for this date range yet.
                     </td>
                 </tr>
                 <tr th:each="record : ${dryingRecords}"
-                    th:classappend="${(record.temperature != null and record.temperature < 85) or (record.moistureContent != null and record.moistureContent > 4)} ? 'row-critical' : ((${record.status == 'APPROVED'} or ${record.status == 'CONSOLIDATED'}) ? 'row-approved' : '')">
+                    th:classappend="${(record.inletTemperature != null and record.inletTemperature > 0 and (record.inletTemperature < 110 or record.inletTemperature > 120))
+                     or (record.outletTemperature != null and record.outletTemperature > 0 and (record.outletTemperature < 70 or record.outletTemperature > 95))
+                     or (record.moistureD1 != null and record.moistureD1 > 0 and (record.moistureD1 < 1.5 or record.moistureD1 > 3))
+                     or (record.moistureD2 != null and record.moistureD2 > 0 and (record.moistureD2 < 1.5 or record.moistureD2 > 3))
+                     or (record.moistureD3 != null and record.moistureD3 > 0 and (record.moistureD3 < 1.5 or record.moistureD3 > 3))
+                     or (record.moistureBB != null and record.moistureBB > 0 and (record.moistureBB < 1.5 or record.moistureBB > 3))} ? 'row-critical' : ((${record.status == 'APPROVED'} or ${record.status == 'CONSOLIDATED'}) ? 'row-approved' : '')">
 
                     <td>
                         <span class="fw-bold text-dark" th:text="${record.productionId != null and record.productionId != '' ? record.productionId : record.lotNumber}">BATCH-00</span>
@@ -537,19 +545,19 @@
                         <div class="moisture-grid">
                             <div class="moisture-cell">
                                 <span class="mlbl">D1</span>
-                                <span class="mval" th:classappend="${record.moistureD1 != null and record.moistureD1 > 4} ? 'danger'" th:text="${record.moistureD1 != null ? record.moistureD1 + '%' : '—'}">—</span>
+                                <span class="mval" th:classappend="${record.moistureD1 != null and record.moistureD1 > 0 and (record.moistureD1 < 1.5 or record.moistureD1 > 3)} ? 'danger'" th:text="${record.moistureD1 != null ? record.moistureD1 + '%' : '—'}">—</span>
                             </div>
                             <div class="moisture-cell">
                                 <span class="mlbl">D2</span>
-                                <span class="mval" th:classappend="${record.moistureD2 != null and record.moistureD2 > 4} ? 'danger'" th:text="${record.moistureD2 != null ? record.moistureD2 + '%' : '—'}">—</span>
+                                <span class="mval" th:classappend="${record.moistureD2 != null and record.moistureD2 > 0 and (record.moistureD2 < 1.5 or record.moistureD2 > 3)} ? 'danger'" th:text="${record.moistureD2 != null ? record.moistureD2 + '%' : '—'}">—</span>
                             </div>
                             <div class="moisture-cell">
                                 <span class="mlbl">D3</span>
-                                <span class="mval" th:classappend="${record.moistureD3 != null and record.moistureD3 > 4} ? 'danger'" th:text="${record.moistureD3 != null ? record.moistureD3 + '%' : '—'}">—</span>
+                                <span class="mval" th:classappend="${record.moistureD3 != null and record.moistureD3 > 0 and (record.moistureD3 < 1.5 or record.moistureD3 > 3)} ? 'danger'" th:text="${record.moistureD3 != null ? record.moistureD3 + '%' : '—'}">—</span>
                             </div>
                             <div class="moisture-cell">
                                 <span class="mlbl">BB</span>
-                                <span class="mval" th:classappend="${record.moistureBB != null and record.moistureBB > 4} ? 'danger'" th:text="${record.moistureBB != null ? record.moistureBB + '%' : '—'}">—</span>
+                                <span class="mval" th:classappend="${record.moistureBB != null and record.moistureBB > 0 and (record.moistureBB < 1.5 or record.moistureBB > 3)} ? 'danger'" th:text="${record.moistureBB != null ? record.moistureBB + '%' : '—'}">—</span>
                             </div>
                         </div>
                     </td>
@@ -562,9 +570,13 @@
                     </td>
 
                     <td>
-                        <div class="metric-item" th:classappend="${record.temperature != null and record.temperature < 85} ? 'danger'">
+                        <div class="metric-item" th:classappend="${record.inletTemperature != null and record.inletTemperature > 0 and (record.inletTemperature < 110 or record.inletTemperature > 120)} ? 'danger'">
                             <i class="fas fa-thermometer-half"></i>
-                            <span th:text="${record.temperature != null ? record.temperature + '°C' : '—'}">0°C</span>
+                            <span>In: </span><span th:text="${record.inletTemperature != null ? record.inletTemperature + '°C' : '—'}">—</span>
+                        </div>
+                        <div class="metric-item" th:classappend="${record.outletTemperature != null and record.outletTemperature > 0 and (record.outletTemperature < 70 or record.outletTemperature > 95)} ? 'danger'">
+                            <i class="fas fa-thermometer-half"></i>
+                            <span>Out: </span><span th:text="${record.outletTemperature != null ? record.outletTemperature + '°C' : '—'}">—</span>
                         </div>
                     </td>
 
@@ -603,6 +615,30 @@
                             </div>
                         </form>
                     </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-1">
+                            <th:block th:if="${record.status == 'DRYING' or record.status == 'APPROVED'}">
+                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        th:data-id="${record.id}" onclick="openDryingEdit(this.dataset.id)"
+                                        title="Edit drying record">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                            </th:block>
+
+                            <form th:if="${record.status == 'DRYING'}"
+                                  th:action="@{/qa/drying/reset}" method="post" class="d-inline"
+                                  onsubmit="return confirm('Send this batch back to the rolling officer? The saved drying values and RH reading are cleared.')">
+                                <input type="hidden" name="id" th:value="${record.id}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Send back to rolling">
+                                    <i class="fas fa-rotate-left"></i>
+                                </button>
+                            </form>
+
+                            <span th:unless="${record.status == 'DRYING' or record.status == 'APPROVED'}" class="text-muted">—</span>
+                        </div>
+                    </td>
+
+
                 </tr>
                 </tbody>
             </table>
@@ -614,9 +650,56 @@
 
 </main>
 
+<div class="modal fade" id="dryingEditModal" tabindex="-1">
+    <div class="modal-dialog"><form class="modal-content" th:action="@{/qa/drying/update}" method="post">
+        <div class="modal-header"><h5 class="modal-title">Edit Drying Record</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <input type="hidden" name="id" id="dr_id">
+            <p class="small text-muted">Rolled total: <strong id="dr_rolled">—</strong> kg. Dry output can't exceed it.</p>
+            <div class="row g-2 mb-3">
+                <div class="col-6"><label class="form-label">In Let Temp (°C)</label>
+                    <input type="number" step="0.1" min="0" class="form-control" name="inletTemp" id="dr_inlet" required></div>
+                <div class="col-6"><label class="form-label">Out Let Temp (°C)</label>
+                    <input type="number" step="0.1" min="0" class="form-control" name="outletTemp" id="dr_outlet" required></div>
+            </div>
+
+            <label class="form-label">Moisture per dhool (%)</label>
+            <div class="row g-2 mb-3">
+                <div class="col-3"><input type="number" step="0.1" min="0" max="100" class="form-control" name="m1" id="dr_m1" placeholder="D1" required></div>
+                <div class="col-3"><input type="number" step="0.1" min="0" max="100" class="form-control" name="m2" id="dr_m2" placeholder="D2" required></div>
+                <div class="col-3"><input type="number" step="0.1" min="0" max="100" class="form-control" name="m3" id="dr_m3" placeholder="D3" required></div>
+                <div class="col-3"><input type="number" step="0.1" min="0" max="100" class="form-control" name="mbb" id="dr_mbb" placeholder="BB" required></div>
+            </div>
+            <label class="form-label">Dry output (kg)</label>
+            <div class="row g-2">
+                <div class="col-3"><input type="number" step="0.01" min="0" class="form-control" name="d1" id="dr_d1" placeholder="D1" required></div>
+                <div class="col-3"><input type="number" step="0.01" min="0" class="form-control" name="d2" id="dr_d2" placeholder="D2" required></div>
+                <div class="col-3"><input type="number" step="0.01" min="0" class="form-control" name="d3" id="dr_d3" placeholder="D3" required></div>
+                <div class="col-3"><input type="number" step="0.01" min="0" class="form-control" name="bb" id="dr_bb" placeholder="BB" required></div>
+            </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-dark" type="submit">Save changes</button></div>
+    </form></div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // ── Configuration ──
+        function openDryingEdit(id) {
+        fetch('/api/qa/drying/' + id + '/values')
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(v => {
+                document.getElementById('dr_id').value = id;
+                ['inlet','outlet','m1','m2','m3','mbb','d1','d2','d3','bb'].forEach(k => {
+                    document.getElementById('dr_' + k).value = (v[k] ?? '');
+                });
+                document.getElementById('dr_rolled').textContent = v.rolledTotal;
+                new bootstrap.Modal(document.getElementById('dryingEditModal')).show();
+            })
+            .catch(() => Swal.fire({ icon: 'error', title: 'Could not load this record', confirmButtonColor: '#0f172a' }));
+    }
+
     const CONFIG = {
         ROWS_PER_PAGE: 10,
         NOTIFICATION_POLL_INTERVAL: 30000, // 30s instead of 10s

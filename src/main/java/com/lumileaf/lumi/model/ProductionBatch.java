@@ -237,6 +237,16 @@ public class ProductionBatch {
 
     public Double getDryBigBulk() { return dryBigBulk; }
     public void setDryBigBulk(Double dryBigBulk) { this.dryBigBulk = dryBigBulk; }
+    @Column(name = "inlet_temperature")
+    private Double inletTemperature;
+
+    @Column(name = "outlet_temperature")
+    private Double outletTemperature;
+
+    public Double getInletTemperature() { return inletTemperature; }
+    public void setInletTemperature(Double inletTemperature) { this.inletTemperature = inletTemperature; }
+    public Double getOutletTemperature() { return outletTemperature; }
+    public void setOutletTemperature(Double outletTemperature) { this.outletTemperature = outletTemperature; }
 
     public Double getDryingLoss() { return dryingLoss; }
     public void setDryingLoss(Double dryingLoss) { this.dryingLoss = dryingLoss; }

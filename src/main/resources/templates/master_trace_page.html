@@ -340,10 +340,13 @@
                         <div class="data-value text-primary fs-5" th:text="${node.blendingRef}"></div>
                     </div>
 
-                    <div class="col-md-12 mt-2">
-                        <p class="mb-0 text-muted" style="font-size: 0.85rem;">
-                            <i class="fas fa-info-circle me-1"></i> Detailed environmental tracking (temperature/humidity) is unavailable for this specific entry. This indicates legacy stock.
-                        </p>
+                    <div class="mb-3">
+                        <div class="data-label">In Let Temperature</div>
+                        <div class="data-value" th:text="${node.production?.inletTemperature != null ? node.production.inletTemperature + ' °C' : 'N/A'}"></div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="data-label">Out Let Temperature</div>
+                        <div class="data-value" th:text="${node.production?.outletTemperature != null ? node.production.outletTemperature + ' °C' : 'N/A'}"></div>
                     </div>
                 </div>
             </div>

@@ -30,6 +30,11 @@ import com.lumileaf.lumi.repository.NotificationEventRepository;
 import com.lumileaf.lumi.model.Admin;
 import com.lumileaf.lumi.repository.AdminRepository;
 import com.lumileaf.lumi.service.PermissionService;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Set;
 @Controller
 public class MobileWaitingController {
 
@@ -69,6 +74,57 @@ public class MobileWaitingController {
         }
         return null;
     }
+    private static boolean isKnownSection(String s) {
+        if (s == null) return false;
+        String v = s.trim().toLowerCase();
+        return v.equals("amigos") || v.equals("estate") || v.equals("farmer group");
+    }
+    private void keepOfficer(RedirectAttributes ra, String officerSelect, String customOfficerName) {
+        if (officerSelect != null && !officerSelect.isBlank()) {
+            ra.addFlashAttribute("lastOfficer", officerSelect);
+            if ("Other".equals(officerSelect) && customOfficerName != null && !customOfficerName.isBlank()) {
+                ra.addFlashAttribute("lastCustomOfficer", customOfficerName);
+            }
+        }
+    }
+
+    /** Re-checks PENDING records that have no usable section against the supplier table.
+     *  Returns the ones that are still unresolved. */
+    private List<WaitingPoint> resolveUnassignedPending() {
+        List<WaitingPoint> stillUnknown = new ArrayList<>();
+        for (WaitingPoint r : waitingRepo.findByStatusOrderByDateDesc("PENDING")) {
+            if (isKnownSection(r.getSection())) continue;
+            Optional<Supplier> s = (r.getSupplierId() == null)
+                    ? Optional.empty()
+                    : supplierRepo.findBySupplierId(r.getSupplierId().trim());
+            if (s.isPresent() && isKnownSection(s.get().getSection())) {
+                r.setSupplierName(s.get().getName());
+                r.setSection(s.get().getSection());
+                r.setRoute(s.get().getSection());
+                waitingRepo.save(r);
+            } else {
+                stillUnknown.add(r);
+            }
+        }
+        return stillUnknown;
+    }
+
+    private List<Map<String, Object>> buildUnknownSummary(List<WaitingPoint> unresolved) {
+        Map<String, Map<String, Object>> byId = new LinkedHashMap<>();
+        for (WaitingPoint r : unresolved) {
+            String id = r.getSupplierId() != null ? r.getSupplierId().trim() : "";
+            Map<String, Object> m = byId.computeIfAbsent(id, k -> {
+                Map<String, Object> n = new HashMap<>();
+                n.put("supplierId", k); n.put("count", 0); n.put("totalWeight", 0.0);
+                return n;
+            });
+            m.put("count", (Integer) m.get("count") + 1);
+            double w = r.getWeight() != null ? r.getWeight() : 0.0;
+            m.put("totalWeight", Math.round(((Double) m.get("totalWeight") + w) * 100.0) / 100.0);
+        }
+        return new ArrayList<>(byId.values());
+    }
+
 
     @GetMapping("/mobile/waiting_dashboard")
     public String showWeighingDashboard(Model model, HttpSession session) {
@@ -76,7 +132,12 @@ public class MobileWaitingController {
             return "redirect:/login";
         }
 
+        List<WaitingPoint> unresolved = resolveUnassignedPending();
+        model.addAttribute("unknownSuppliers", buildUnknownSummary(unresolved));
+
         List<WaitingPoint> allRecords = waitingRepo.findAll();
+
+        // ✅ FIX #1: Show only PENDING records (hide FINALIZED ones)
 
         // ✅ FIX #1: Show only PENDING records (hide FINALIZED ones)
         List<WaitingPoint> pendingRecords = allRecords.stream()
@@ -91,6 +152,7 @@ public class MobileWaitingController {
         // latest date across ALL records also means it naturally resets once a later date's
         // (e.g. tomorrow's) records start coming in.
         Optional<LocalDate> latestDate = allRecords.stream()
+                .filter(r -> r.getStatus() == null || "PENDING".equals(r.getStatus()))
                 .map(WaitingPoint::getDate)
                 .filter(d -> d != null)
                 .max(Comparator.naturalOrder());
@@ -100,20 +162,11 @@ public class MobileWaitingController {
 
         if (latestDate.isPresent()) {
             LocalDate ld = latestDate.get();
-
-            // Only show the summary while at least one record for this date
-            // is still PENDING. Once every record for this date is FINALIZED,
-            // the card resets — signalling this date's intake is fully processed.
-            boolean hasPendingForLatestDate = allRecords.stream()
-                    .anyMatch(r -> ld.equals(r.getDate()) && "PENDING".equals(r.getStatus()));
-
-            if (hasPendingForLatestDate) {
-                displayDate = ld;
-                dailyTotal = allRecords.stream()
-                        .filter(r -> ld.equals(r.getDate()))
-                        .mapToDouble(r -> r.getWeight() != null ? r.getWeight() : 0.0)
-                        .sum();
-            }
+            displayDate = ld;
+            dailyTotal = allRecords.stream()
+                    .filter(r -> ld.equals(r.getDate()))
+                    .mapToDouble(r -> r.getWeight() != null ? r.getWeight() : 0.0)
+                    .sum();
         }
 
         model.addAttribute("dailyTotal", String.format("%.2f", dailyTotal));
@@ -149,6 +202,7 @@ public class MobileWaitingController {
             int duplicateCount = 0;
             int unparseableDateCount = 0;
             List<String> unparseableSamples = new java.util.ArrayList<>();
+            Set<String> unknownIds = new LinkedHashSet<>();
 
             List<WaitingPoint> existingRecords = waitingRepo.findAll();
 
@@ -194,13 +248,13 @@ public class MobileWaitingController {
                 WaitingPoint wp = new WaitingPoint();
                 wp.setDate(recordDate);
                 wp.setSupplierId(farmerId);
-                wp.setSupplierName("");
-                wp.setDate(recordDate);
-                wp.setSupplierId(farmerId);
 
                 Optional<Supplier> matchedSupplier = supplierRepo.findBySupplierId(farmerId);
                 wp.setSupplierName(matchedSupplier.map(Supplier::getName).orElse(""));
-                wp.setSection(matchedSupplier.map(Supplier::getSection).orElse("UNASSIGNED"));
+                String sec = matchedSupplier.map(Supplier::getSection)
+                        .filter(MobileWaitingController::isKnownSection).orElse("UNASSIGNED");
+                wp.setSection(sec);
+                if ("UNASSIGNED".equals(sec)) unknownIds.add(farmerId);
 
                 wp.setGrossWeight(grossWeight);
                 wp.setBags(bags);
@@ -210,7 +264,7 @@ public class MobileWaitingController {
                 wp.setLotNumber("");
                 wp.setOfficerName("");
 
-                wp.setRoute(matchedSupplier.map(Supplier::getSection).orElse("UNASSIGNED"));
+                wp.setRoute(sec);
 
                 wp.setStatus("PENDING");
 
@@ -231,6 +285,13 @@ public class MobileWaitingController {
                     msg.append(" (e.g. \"").append(String.join("\", \"", unparseableSamples)).append("\")");
                 }
                 msg.append(".");
+            }
+            if (!unknownIds.isEmpty()) {
+                msg.append(" ").append(unknownIds.size())
+                        .append(" farmer ID(s) are not set up in the system (")
+                        .append(String.join(", ", unknownIds.stream().limit(5).toList()))
+                        .append(unknownIds.size() > 5 ? ", ..." : "")
+                        .append("). Add them below before finalizing.");
             }
             redirectAttributes.addFlashAttribute("successMessage", msg.toString());
 
@@ -257,6 +318,14 @@ public class MobileWaitingController {
             return "redirect:/mobile/waiting_dashboard";
         }
         try {
+            List<WaitingPoint> unresolved = resolveUnassignedPending();
+            if (!unresolved.isEmpty()) {
+                String ids = unresolved.stream().map(WaitingPoint::getSupplierId).distinct()
+                        .collect(Collectors.joining(", "));
+                redirectAttributes.addFlashAttribute("errorMessage",
+                        "❌ Add these farmers to the system before finalizing: " + ids);
+                return "redirect:/mobile/waiting_dashboard";
+            }
             // ✅ FIX #1: Only fetch PENDING records (not already finalized)
             List<WaitingPoint> pendingRecords = waitingRepo.findByStatusOrderByDateDesc("PENDING");
 
@@ -380,6 +449,49 @@ public class MobileWaitingController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("errorMessage", "❌ Error: " + e.getMessage());
         }
+        return "redirect:/mobile/waiting_dashboard";
+    }
+    @PostMapping("/api/waiting/add-supplier")
+    public String addSupplierFromWeighing(@RequestParam String supplierId,
+                                          @RequestParam String name,
+                                          @RequestParam String section,
+                                          @RequestParam(value = "officerSelect", required = false) String officerSelect,
+                                          @RequestParam(value = "customOfficerName", required = false) String customOfficerName,
+                                          HttpSession session,
+                                          RedirectAttributes ra) {
+        keepOfficer(ra, officerSelect, customOfficerName);
+
+        String username = (String) session.getAttribute("username");
+        Admin admin = (username != null) ? adminRepo.findByUsername(username) : null;
+        if (admin == null || !permissionService.hasPermission(admin, "WEIGHING_UPLOAD_CSV")) {
+            ra.addFlashAttribute("errorMessage", "You don't have permission to add suppliers.");
+            return "redirect:/mobile/waiting_dashboard";
+        }
+        String id = supplierId.trim();
+        if (id.isEmpty() || name.isBlank() || !isKnownSection(section)) {
+            ra.addFlashAttribute("errorMessage", "Supplier ID, name and a valid section are required.");
+            return "redirect:/mobile/waiting_dashboard";
+        }
+        Optional<Supplier> existing = supplierRepo.findBySupplierId(id);
+        if (existing.isPresent()) {
+            Supplier s = existing.get();
+            if (isKnownSection(s.getSection())) {
+                ra.addFlashAttribute("errorMessage", "Supplier " + id + " already exists.");
+                return "redirect:/mobile/waiting_dashboard";
+            }
+            s.setSection(section.trim());
+            supplierRepo.save(s);
+        } else {
+            Supplier s = new Supplier();
+            s.setSupplierId(id);
+            s.setName(name.trim());
+            s.setSection(section.trim());
+            s.setContact("");
+            s.setStatus("ACTIVE");
+            supplierRepo.save(s);
+        }
+        resolveUnassignedPending();
+        ra.addFlashAttribute("successMessage", "Supplier " + id + " added. Their pending records are now assigned.");
         return "redirect:/mobile/waiting_dashboard";
     }
 }

@@ -201,7 +201,10 @@
 
 <div class="container-fluid p-4">
 
-    <div class="row mb-4">
+    <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+
+    <div class="row g-3 mb-4">
         <div class="col-md-3">
             <div class="stat-card">
                 <p>Total Records</p>
@@ -225,7 +228,7 @@
 
         <div class="col-md-3">
             <div class="stat-card loss">
-                <p>Avg Loss</p>
+                <p>Avg Excess</p>
                 <h4 th:text="${#numbers.formatDecimal(avgLoss,1,2) + ' kg'}">0 kg</h4>
             </div>
         </div>
@@ -244,7 +247,8 @@
                 <th class="text-center">Rainfall</th>
                 <th class="text-center">Weather</th>
                 <th class="text-center">Output</th>
-                <th class="text-center">Loss</th>
+                <th class="text-center">Reduce Balance</th>
+                <th class="text-center">Actions</th>
             </tr>
             </thead>
 
@@ -290,8 +294,24 @@
                 <td class="text-center">
                     <span class="loss-text">
                         <i class="fas fa-minus me-1"></i>
-                        [[${#numbers.formatDecimal(record.processLoss ?: 0,1,2)}]] kg
+                                             [[${#numbers.formatDecimal(record.processLoss ?: 0,1,2)}]] kg
                     </span>
+                </td>
+
+                <td class="text-center text-nowrap">
+                    <button type="button" class="btn btn-sm btn-outline-success me-1"
+                            th:data-batch="${record.batchId}"
+                            th:data-officer="${record.rollingOfficer}"
+                            th:data-weightin="${record.weightIn}"
+                            th:data-d1="${record.dhool1}" th:data-d2="${record.dhool2}"
+                            th:data-d3="${record.dhool3}" th:data-bb="${record.bigBulk}"
+                            th:data-rain="${record.rainfall}" th:data-weather="${record.weatherCondition}"
+                            onclick="openRollingEdit(this)"><i class="fas fa-pen"></i></button>
+                    <form th:action="@{/qa/rolling/delete}" method="post" class="d-inline"
+                          onsubmit="return confirm('Delete this rolling record? Its pending drying record is removed too.')">
+                        <input type="hidden" name="batchId" th:value="${record.batchId}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    </form>
                 </td>
 
             </tr>
@@ -301,15 +321,47 @@
 
 </div>
 
-<script>
-    function filterRollingTable() {
-        let input = document.getElementById("rollingSearch");
-        let filter = input.value.toUpperCase();
-        let rows = document.querySelectorAll("#rollingTable tbody tr");
+<div class="modal fade" id="rollingEditModal" tabindex="-1">
+    <div class="modal-dialog"><form class="modal-content" th:action="@{/qa/rolling/update}" method="post">
+        <div class="modal-header"><h5 class="modal-title">Edit Rolling Record</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <input type="hidden" name="batchId" id="r_batch">
+            <div class="mb-2"><label class="form-label">Officer</label><input class="form-control" name="officerName" id="r_officer" required></div>
+            <div class="mb-2"><label class="form-label">Weight In (kg) <small class="text-muted">from withering, locked</small></label>
+                <input class="form-control" id="r_in" readonly></div>
+            <div class="row g-2 mb-2">
+                <div class="col-6"><label class="form-label">Dhool 1</label><input type="number" step="0.01" min="0" class="form-control" name="dhool1" id="r_d1"></div>
+                <div class="col-6"><label class="form-label">Dhool 2</label><input type="number" step="0.01" min="0" class="form-control" name="dhool2" id="r_d2"></div>
+                <div class="col-6"><label class="form-label">Dhool 3</label><input type="number" step="0.01" min="0" class="form-control" name="dhool3" id="r_d3"></div>
+                <div class="col-6"><label class="form-label">Big Bulk</label><input type="number" step="0.01" min="0" class="form-control" name="bigBulk" id="r_bb"></div>
+            </div>
+            <div class="row g-2">
+                <div class="col-6"><label class="form-label">Rainfall (mm)</label><input type="number" step="0.1" min="0" class="form-control" name="rainfall" id="r_rain"></div>
+                <div class="col-6"><label class="form-label">Weather</label>
+                    <select class="form-select" name="weatherCondition" id="r_weather">
+                        <option value="">N/A</option><option>Clear</option><option>Cloudy</option><option>Rainy</option>
+                        <option>Partly Cloudy</option><option>Foggy</option><option>Windy</option></select></div>
+            </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-success" type="submit">Save changes</button></div>
+    </form></div>
+</div>
 
-        rows.forEach(row => {
-            row.style.display = row.textContent.toUpperCase().includes(filter) ? "" : "none";
-        });
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function openRollingEdit(b) {
+        const d = b.dataset;
+        document.getElementById('r_batch').value = d.batch || '';
+        document.getElementById('r_officer').value = d.officer || '';
+        document.getElementById('r_in').value = d.weightin || '';
+        document.getElementById('r_d1').value = d.d1 || '';
+        document.getElementById('r_d2').value = d.d2 || '';
+        document.getElementById('r_d3').value = d.d3 || '';
+        document.getElementById('r_bb').value = d.bb || '';
+        document.getElementById('r_rain').value = d.rain || '';
+        document.getElementById('r_weather').value = d.weather || '';
+        new bootstrap.Modal(document.getElementById('rollingEditModal')).show();
     }
 </script>
 

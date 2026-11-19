@@ -376,6 +376,8 @@
             </a>
         </div>
     </div>
+    <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+    <div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
 
     <!-- Controls Section -->
     <div class="controls-section">
@@ -400,6 +402,7 @@
                 <th>Moisture Loss</th>
                 <th>Labor Team</th>
                 <th class="text-center">Recorded By</th>
+                <th class="text-center">Actions</th>
             </tr>
             </thead>
             <tbody>
@@ -468,6 +471,23 @@
                 <td class="text-center">
                     <div class="officer-name" th:text="${record.officerName ?: 'Unknown'}">Kamal Perera</div>
                 </td>
+
+                <td class="text-center text-nowrap">
+                    <button type="button" class="btn btn-sm btn-outline-success me-1"
+                            th:data-batch="${record.batchId}"
+                            th:data-officer="${record.officerName}"
+                            th:data-labors="${record.labors}"
+                            th:data-start="${record.startTime}"
+                            th:data-end="${record.endTime}"
+                            th:data-withered="${record.witheredWeight}"
+                            onclick="openEdit(this)"><i class="fas fa-pen"></i></button>
+                    <form th:action="@{/qa/withering/delete}" method="post" class="d-inline"
+                          onsubmit="return confirm('Delete the withering record for this batch? This cannot be undone.')">
+                        <input type="hidden" name="batchId" th:value="${record.batchId}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    </form>
+                </td>
+                </td>
             </tr>
             </tbody>
         </table>
@@ -480,33 +500,37 @@
     </div>
 </div>
 
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog"><form class="modal-content" th:action="@{/qa/withering/update}" method="post">
+        <div class="modal-header"><h5 class="modal-title">Edit Withering Record</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <input type="hidden" name="batchId" id="e_batch">
+            <div class="mb-2"><label class="form-label">Officer</label><input class="form-control" name="officerName" id="e_officer" required></div>
+            <div class="mb-2"><label class="form-label">Labors</label><input class="form-control" name="labors" id="e_labors"></div>
+            <div class="row g-2 mb-2">
+                <div class="col"><label class="form-label">Start</label><input type="time" class="form-control" name="startTime" id="e_start"></div>
+                <div class="col"><label class="form-label">End</label><input type="time" class="form-control" name="endTime" id="e_end"></div>
+            </div>
+            <div class="mb-2"><label class="form-label">Withered weight (kg)</label>
+                <input type="number" step="0.01" min="0.01" class="form-control" name="witheredWeight" id="e_withered" required>
+                <small class="text-muted">Changing this also updates Weight In on the rolling record.</small></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-success" type="submit">Save changes</button></div>
+    </form></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function filterWitheringTable() {
-        const input = document.getElementById("witheringSearch");
-        const filter = input.value.toUpperCase();
-        const table = document.getElementById("witheringTable");
-        const tbody = table.getElementsByTagName("tbody")[0];
-        const rows = tbody.getElementsByTagName("tr");
-        let visibleCount = 0;
-
-        for (let i = 0; i < rows.length; i++) {
-            const textContent = rows[i].textContent || rows[i].innerText;
-            if (textContent.toUpperCase().indexOf(filter) > -1) {
-                rows[i].style.display = "";
-                visibleCount++;
-            } else {
-                rows[i].style.display = "none";
-            }
-        }
-
-        // Show/hide no results message
-        const noResultsMsg = document.getElementById("noResultsMsg");
-        if (visibleCount === 0 && filter.length > 0) {
-            noResultsMsg.classList.add("show");
-        } else {
-            noResultsMsg.classList.remove("show");
-        }
+    function openEdit(btn) {
+        document.getElementById('e_batch').value = btn.dataset.batch || '';
+        document.getElementById('e_officer').value = btn.dataset.officer || '';
+        document.getElementById('e_labors').value = btn.dataset.labors || '';
+        document.getElementById('e_start').value = (btn.dataset.start || '').replace('--:--', '');
+        document.getElementById('e_end').value = (btn.dataset.end || '').replace('--:--', '');
+        document.getElementById('e_withered').value = btn.dataset.withered || '';
+        new bootstrap.Modal(document.getElementById('editModal')).show();
     }
-</script>
+    </script>
 </body>
 </html>

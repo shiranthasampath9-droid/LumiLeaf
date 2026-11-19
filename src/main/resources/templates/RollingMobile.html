@@ -538,8 +538,21 @@
 </div>
 
 
-<div id="rollingTab" class="tab active">
+<div class="date-strip">
+    <label><i class="fas fa-calendar-alt" style="margin-right:5px;"></i>Rolling Date</label>
+    <input type="date" id="rollingDatePicker"
+           th:value="${selectedDate}"
+           onchange="applyDateFilter()">
+</div>
 
+<div class="date-strip" style="gap:8px;">
+    <button type="button" class="btn btn-green" onclick="showTab('rolling')" style="padding:10px;">Rolling</button>
+    <button type="button" class="btn btn-amber" onclick="showTab('drying')" style="padding:10px;">
+        Drying <span th:text="'(' + ${pendingDryingCount} + ')'"></span>
+    </button>
+</div>
+
+<div id="rollingTab" class="tab active">
     <div class="status-banner">
         <div class="status-badge">
             <div class="pulse-dot"></div>
@@ -557,13 +570,6 @@
     <div th:if="${param.success != null}" class="success-banner">
         <i class="fas fa-check-circle"></i>
         Rolling record saved successfully.
-    </div>
-
-    <div class="date-strip">
-        <label><i class="fas fa-calendar-alt" style="margin-right:5px;"></i>Rolling Date</label>
-        <input type="date" id="rollingDatePicker"
-               th:value="${selectedDate}"
-               onchange="applyDateFilter()">
     </div>
 
     <div class="card">
@@ -636,7 +642,7 @@
                 </div>
 
                 <div class="loss-row">
-                    <span class="loss-label"><i class="fas fa-chart-line" style="margin-right:5px;"></i>Process Loss</span>
+                    <span class="loss-label"><i class="fas fa-chart-line" style="margin-right:5px;"></i>Process Excess </span>
                     <span class="loss-value" id="loss">—</span>
                 </div>
 
@@ -698,9 +704,10 @@
     <div th:each="d:${dryingRecords}" class="dry-card">
         <div class="dry-card-header">
             <span class="lot-badge" th:text="${d.lotNumber}"></span>
+            <span th:if="${d.dryingCompleted}" class="lot-badge" style="background:#2d6a4f; margin-left:8px;">Completed</span>
         </div>
         <div class="card-inner">
-            <form th:action="@{/mobile/update-drying}" method="post" onsubmit="return validateDrying(event,this)">
+            <form th:action="@{/mobile/update-drying}" method="post" th:attr="data-locked=${d.dryingCompleted}" onsubmit="return validateDrying(event,this)">
                 <input type="hidden" name="id" th:value="${d.id}">
                 <input type="hidden" name="redirectDate" th:value="${selectedDate}">
                 <input type="hidden" class="rolling-total-raw"
@@ -741,11 +748,19 @@
                     </div>
                 </div>
                 <!-- Temperature Input Field -->
-                <div class="field">
-                    <label>Temperature (°C)</label>
-                    <input name="temp" type="number" step="0.1" min="0"
-                           th:value="${d.temperature != null && d.temperature > 0 ? d.temperature : ''}"
-                           placeholder="e.g., 82.5" required>
+                <div class="input-grid" style="margin-bottom:14px;">
+                    <div>
+                        <label class="input-grid-label">In Let Temp (°C)</label>
+                        <input name="inletTemp" type="number" step="0.1" min="0"
+                               th:value="${d.inletTemperature != null and d.inletTemperature > 0 ? d.inletTemperature : ''}"
+                               placeholder="e.g., 110" required>
+                    </div>
+                    <div>
+                        <label class="input-grid-label">Out Let Temp (°C)</label>
+                        <input name="outletTemp" type="number" step="0.1" min="0"
+                               th:value="${d.outletTemperature != null and d.outletTemperature > 0 ? d.outletTemperature : ''}"
+                               placeholder="e.g., 85" required>
+                    </div>
                 </div>
 
                 <label style="font-size:11px;font-weight:600;color:#e67e22;letter-spacing:1.2px;text-transform:uppercase;display:block;margin-bottom:8px;">
@@ -773,9 +788,11 @@
                     <span class="loss-value dryLoss" th:text="${d.dryLoss != null ? #numbers.formatDecimal(d.dryLoss, 1, 2) + ' kg' : '—'}">—</span>
                 </div>
 
-                <button class="btn btn-amber" type="submit">
-                    <i class="fas fa-save"></i>
-                    Update Record
+                <button class="btn btn-amber submit-btn" type="submit">
+                    <i class="fas fa-save"></i> Update Record
+                </button>
+                <button class="btn btn-green edit-btn" type="button" style="display:none;" onclick="unlockDrying(this)">
+                    <i class="fas fa-pen"></i> Edit
                 </button>
             </form>
         </div>
@@ -807,12 +824,18 @@ function toggleCustomOfficer() {
     }
 }
 
+        function showTab(name) {
+        document.getElementById('rollingTab').classList.toggle('active', name === 'rolling');
+        document.getElementById('dryingTab').classList.toggle('active', name === 'drying');
+    }
+
     function applyDateFilter() {
         const d = document.getElementById('rollingDatePicker').value;
         if (d) {
             document.getElementById('hiddenSelectedDate').value = d;
             document.getElementById('activeDateLabel').innerText = 'Date: ' + d;
-            window.location.href = '/mobile/rolling_dashboard?date=' + d;
+                        const tab = document.getElementById('dryingTab').classList.contains('active') ? '&tab=drying' : '';
+            window.location.href = '/mobile/rolling_dashboard?date=' + d + tab;
         }
     }
 
@@ -880,6 +903,20 @@ function toggleCustomOfficer() {
         });
         calcRolling();
     }
+    function lockDryingForm(f) {
+    f.querySelectorAll('input:not([type=hidden])').forEach(i => { if (!i.classList.contains('readonly')) i.readOnly = true; });
+    f.querySelector('.submit-btn').style.display = 'none';
+    f.querySelector('.edit-btn').style.display = 'flex';
+}
+function unlockDrying(btn) {
+    const f = btn.closest('form');
+    f.querySelectorAll('input:not([type=hidden])').forEach(i => { if (!i.classList.contains('readonly')) i.readOnly = false; });
+    f.querySelector('.submit-btn').style.display = 'flex';
+    btn.style.display = 'none';
+}
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form[data-locked="true"]').forEach(lockDryingForm);
+});
 
     function calcRolling() {
         let w  = Math.round((parseFloat(document.getElementById('weightIn').value) || 0) * 100) / 100;
@@ -1016,10 +1053,8 @@ function toggleCustomOfficer() {
     document.addEventListener("DOMContentLoaded", function() {
         const urlParams = new URLSearchParams(window.location.search);
 
-        // If the URL has '?success' in it
-        if (urlParams.has('success')) {
-            document.getElementById('rollingTab').classList.remove('active');
-            document.getElementById('dryingTab').classList.add('active');
+              if (urlParams.has('success') || urlParams.has('success_drying') || urlParams.get('tab') === 'drying') {
+            showTab('drying');
         }
     });
 

@@ -15,7 +15,6 @@ public class Admin {
     private String role;
     private String dashboard; // Waiting / Withering / Rolling
 
-    // Getters and Setters
     public int getId() { return id; }
 
     public String getUsername() { return username; }
